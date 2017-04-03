@@ -93,17 +93,18 @@ def CircleFitByPratt(XY):
     #x,y,rad
     return Par
     
-def PrattPlotter(XY):
+def PrattPlotter(XY, ax=None):
     import matplotlib.pyplot as p
     import numpy as n
     xc,yc,R = CircleFitByPratt(XY)
-    fig = p.figure()
-    p.plot(XY[:,0],XY[:,1],'.',linestyle='none')
+    if ax is None:
+        ax = p.gca()
+    l, = ax.plot(XY[:,0],XY[:,1],'.',linestyle='none')
     x = n.linspace( n.min(XY[:,0]),n.max(XY[:,0]),1000)
     ypos = n.sqrt( R**2 - (x-xc)**2 ) + yc
     #yneg = -n.sqrt( R**2 - (x-xc)**2 ) + yc
-    p.plot(x,ypos,'r')
-    p.text(.98,.02,'R = {:.3f}'.format(R),transform=fig.gca().transAxes,ha='right',va='bottom')
+    ax.plot(x,ypos, l.get_mfc())
+    ax.text(.98,.02,'R = {:.3f}'.format(R),transform=ax.transAxes,ha='right',va='bottom')
     #p.plot(x,yneg,'r')
-    return fig.gca()
+    return ax
     

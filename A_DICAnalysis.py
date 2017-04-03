@@ -10,6 +10,7 @@ import numexpr as ne
 from pandas import read_excel, read_csv
 from mysqrtm import mysqrtm
 from CircleFitByPratt import CircleFitByPratt as CF
+from CircleFitByPratt import PrattPlotter
 import os, glob, shutil
 
 '''
@@ -36,9 +37,9 @@ Outstanding
 - Analysis of Localization needs special treatment
 
 '''
-proj = 'GMPT-1_FS15SS5'
+proj = 'GMPT-2_FS30SS10'
 BIN = False
-makecontours = True
+makecontours = False
 saveAram = True                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
 print(" Have you added this experiment to the summary yet?")
@@ -157,8 +158,8 @@ else:
 
 # Calculate the facet size and spacing relative to thickness
 if not os.path.exists('./zMisc/facetsize.dat'):
-    A = A[ (abs(A[:,2])<=0.2) & (abs(A[:,3])<=0.1) , :]
-    min_disp = n.min( pdist(A[:,[2,3,4]]) )
+    Atemp = A[ (abs(A[:,2])<=0.2) & (abs(A[:,3])<=0.1) , :]
+    min_disp = n.min( pdist(Atemp[:,[2,3,4]]) )
     SS_th = (min_disp/thickness)
     FS_th = FS / SS * (min_disp/thickness)
     n.savetxt('./zMisc/facetsize.dat', X=[SS_th, FS_th], fmt='%.6f', header='[0]Step/thickness, [1]Size/thickness')
@@ -211,11 +212,6 @@ for k in range(last+1):
 
 if not os.path.exists('./zMisc/disp_limits.dat'):
     ## Now identify the upper and lower ranges for calculating delta of the thick edges
-    if BIN == True:
-        A = n.load('{}/{}{:.0f}.npy'.format(arampath,prefix,0))
-    else:
-        A = read_csv('{}/{}{:.0f}.txt'.format(arampath,prefix,0),sep=',',na_values=' ',skiprows=3,header=None,index_col=None).values
-        A = A[ ~n.any(n.isnan(A),axis=1), :]
     #[0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
     p.figure(figsize=(16,12))
     p.title('Click the four points that bound the cusp of the thick edges',size=20)
@@ -233,12 +229,22 @@ if not os.path.exists('./zMisc/disp_limits.dat'):
 else:
     rdlim = n.sort(n.genfromtxt('./zMisc/disp_limits.dat',delimiter=','))
 
-#Initialize a few things before looping and calculating every stage
+# Initialize and define some things
 # Main data array
-#[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
+# [0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
 D = n.empty((last+1, 7))
+# Linspace for best-fit circle
+yspace_bfc = linspace(-.1, .1, 3)[:,None]
+# Vertical profiles
+# First col:  Undeformed y-coords
+# next 4 cols:  -45 deg, 0deg, +45 deg, pratt BFC
+numpts = len( n.unique(A[:,0])) # number of yspace points
+PROFS = n.empty(( numpts,4*(last+1) + 1))*n.nan
+yspace_pro = linspace(-2,2,numpts)[:,None]
+PROFS[:,[0]] = yspace_pro  # First column assigned
+
 #Cycle through the stages
-for k in range(last,-1,-1):
+for itcount, k in enumerate(range(last,-1,-1)):
     print('{}. Stage {}'.format(proj,k))
     if BIN:
         A = n.load('{}/{}{:.0f}.npy'.format(arampath,prefix,k))
@@ -263,6 +269,10 @@ for k in range(last,-1,-1):
     NEq = U[:,0,0] - 1 #Hoop
     NEx = U[:,1,1] - 1 #Axial
     NExq = U[:,0,1]
+    Ro = n.sqrt(A[:,2]**2 + A[:,4]**2)
+    R =  n.sqrt(A[:,5]**2 + A[:,7]**2)
+    # Append R, Ro, Q to A
+    A = n.hstack(( A, Ro[:,None], R[:,None], Q[:,None] ))
     
     # Point Coordinate Range.  abs(Y)<0.5 and +/- 20 degrees from q_mid
     rng = (abs(A[:,3]) < 0.5) & (Q <= q_mid+20) & (Q >= q_mid-20)
@@ -277,10 +287,7 @@ for k in range(last,-1,-1):
     D[k,2] = NEq[rng][keeps].mean()
     D[k,3] = NExq[rng][keeps].mean()
 
-    # Axial  interpolation
-    # Append NEx, NEq to A
-    A = n.hstack(( A[:,:-4], NEx[:,None], NEq[:,None] ))
-    interpfun = LinearNDInterpolator(A[:,[2,3]],A[:,2:])
+    # Virtual axial extensometer 
     # Interp at +/- 0.5" undeformed for axial
     rng = (Q <= q_mid+10) & (Q >= q_mid-10)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
@@ -294,23 +301,53 @@ for k in range(last,-1,-1):
     # BF circ at +0.1, 0, and -0.1
     rng = (Q <= q_mid + .3*q_rng) & (Q >= q_mid - .4*q_rng) & (abs(A[:,3])<1)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    yspace = linspace(-.1, .1, 3)
-    #yspace = linspace(1.5, 1.7, 3)   #### Higher up analysis
     Atemp = A[(A[:,3]>=-0.2) & (A[:,3]<=0.2)]
     #Atemp = A[(A[:,3]>=1.2) & (A[:,3]<=2)]  #### Higher up analysis
-    xzinterp = griddata( Atemp[:,[2,3]], Atemp[:,[2,4,5,7]], (xspace[None,:], yspace[:,None]), method='linear')
+    xzinterp = griddata( Atemp[:,[2,3]], Atemp[:,[2,4,5,7]], (xspace[None,:], yspace_bfc), method='linear')
+    # This interpolatin is of shape ( len(yspace_bfc), len(xspace), len(Atemp[0]) )
+    # i.e. (number of y pts, number of x pts, number of columns interpolated)
     Ro, R = 0.0, 0.0
-    for i in range(len(yspace)):
+    for i in range(yspace_bfc.shape[0]):
         Ro += CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
         R += CF(xzinterp[i,:,[2,3]].T)[-1]
     # Assign
     D[k,5] = R/Ro - 1
+
+    # BF Circles from -2 to +2
+    # Consider finding out the min and max x by finding out the x coord of the most extreme but unbroken j-index column
+    # The wider the arc over which we BF circle, the smoother the data
+    '''
+    Atemp = A[ n.abs(A[:,3] ) =< 2 ]
+    length, mins, maxes = [], [], []
+    for K,J in enumerate(n.unique(Atemp[:,1])):
+        Atemp = A[ A[:,1] == J ]
+    '''
+    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
+    Atemp = A[(A[:,3]>=1.2) & (A[:,3]<=2)]  #### Higher up analysis
+    xzinterp = griddata( A[:,[2,3]], A[:,[2,4,5,7]], (xspace[None,:], yspace_pro), method='linear')
+    for i in range(yspace_pro.shape[0]):
+        if n.any( n.isnan( xzinterp[i] ) ):
+            pass
+            print('fuck')
+        else:
+            Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
+            R = CF(xzinterp[i,:,[2,3]].T)[-1]
+            PROFS[i, k*4+4] = R/Ro - 1
+
+    # Vertical profiles
+    # Interp based on undef Q and undef Y to get R/Ro - 1
+    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
+    #xspace = n.hstack(( -16/25.4, linspace( A[rng,2].min(), A[rng,2].max(), 3 ), 20/25.4))
+    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 3 )
+    PROFS[:, k*4+1:k*4+4]  = griddata( A[:,[2,3]], A[:,-2]/A[:,-3] - 1, (xspace[None,:], yspace_pro), method='linear')
     
     # Calculate delta from edges
     lower = A[ (A[:,3] >= rdlim[0]) & (A[:,3] <= rdlim[1]) & (n.abs(A[:,2]) <= 0.2), :]
     upper = A[ (A[:,3] >= rdlim[2]) & (A[:,3] <= rdlim[3]) & (n.abs(A[:,2]) <= 0.2), :]
     D[k,6] = n.mean(upper[:,6]) - n.mean(lower[:,6])
 
+
+    
 #########
 # End of Loop
 #########
@@ -328,5 +365,8 @@ D[0,:] = 0
 #[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
 headerline = '[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L, Lg={:.6f}'.format(GL)
 n.savetxt('Results.dat', X=D, fmt='%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
+headerline = ('First column:  Undef y-coord\n' +
+             'k+1 to k+4 column:  Stage K ur/Ro for vert profile at X={:.3f}, {:.3f}, {:.3f} inches and using BFcirc'.format(*xspace))
+n.savetxt('Profiles.dat', X=PROFS, fmt='%.6f', delimiter=',', header=headerline)
 
 

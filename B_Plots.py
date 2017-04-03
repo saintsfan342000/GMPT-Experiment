@@ -1,5 +1,6 @@
 import numpy as n
 import matplotlib.pyplot as p
+from pandas import read_csv
 import os
 from sys import argv
 import figfun as f
@@ -12,11 +13,11 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 1
+    expt = 2
     FS = 30
     SS = 10
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
-    savefigs = False
+    savefigs = True
 
 
 try:
@@ -38,6 +39,7 @@ if n.isnan(alpha):
 
 D = n.genfromtxt('Results.dat', delimiter=',')
 stg, time, F, P, sigx, sigq, LVDT, Disp = n.genfromtxt('STPF.dat', delimiter=',').T
+PROF = read_csv('./Profiles.dat', sep=',', comment='#', header=None, index_col=None).values
 profstg = n.genfromtxt('./zMisc/prof_stages.dat', delimiter=',', dtype=int)
 
 ##################################################
@@ -52,6 +54,7 @@ colors = []
 for i in profstg:
     l, = ax1.plot(sigq[i], sigx[i], 'o', mew=0)
     colors.append(l.get_mfc())
+ax1.axis(ymax=1.05*sigx.max())    
 ax1.set_xlabel('$\\sigma_{\\theta}$ ($\\mathsf{ksi}$)')
 ax1.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
 ax1.set_title('Nominal Stress Reponse')
@@ -67,6 +70,7 @@ ax21.plot(D[:,4]*1000, sigx, label='1" L$_g$')
 ax21.plot(D[:,1]*1000, sigx, label='Point Avg.')
 for k,i in enumerate(profstg):
     ax21.plot(D[i,1]*1000, sigx[i], 'o', color=colors[k])
+ax21.axis(ymax=1.05*sigx.max())    
 ax21.set_xlabel('$\\epsilon_\\mathsf{x}$($\\mathsf{x10}^\\mathsf{3})$')
 ax21.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
 leg = f.ezlegend(ax21, loc='lower right')
@@ -94,6 +98,21 @@ ax3.set_xlabel('$\\epsilon_\\theta$ ($\\mathsf{x10}^\\mathsf{3}$)')
 ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n($\\mathsf{x10}^\\mathsf{3}$)')
 f.myax(ax3)
 
+##################################################
+# Figure 4 - Profiles
+##################################################
+p.style.use('mysty-sub')
+p.rcParams['font.size'] = 18
+p.rcParams['axes.labelsize'] = 22
+fig4 = p.figure()
+ax4 = fig4.add_subplot(111)
+for k,i in enumerate(profstg):
+    ax4.plot(PROF[:,4*i+1:4*i+4], PROF[:,0]*2/4, alpha=0.35, color=colors[k])
+    #ax4.plot(PROF[:,4*i+3], PROF[:,0]*2/4, alpha=0.35, color=colors[k])
+    ax4.plot(PROF[:,4*i+4], PROF[:,0]*2/4, color=colors[k])
+ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$')
+ax4.set_ylabel('$\\frac{\\mathsf{y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
+f.myax(ax4, HW=1, HL=0.035)
 
 ##################################################
 # Figure 0 - Binder Figs
@@ -123,14 +142,15 @@ f.eztext(ax02, 'P$_\\mathsf{{max}}$ = {:.0f}'.format(P[pmax]*1000), 'br')
 ax02.plot(Disp[pmax], P[pmax]*1000,'r^',mec='r')
 f.myax(ax02)
 # Calculate a_true and plop it in between
-a_true = n.polyfit(d[:,3],d[:,4],1)[0]
+a_true = n.polyfit(sigq, sigx,1 )[0]
 ax02.text(.5, .48, '$\\alpha_\\mathsf{{true}}$ = {:.2f}'.format(a_true),
           ha='center', va='center', transform=fig0.transFigure) 
 
 if savefigs:
-    fig3.savefig('3 - StrainProfile.png',dpi=125)
-    fig2.savefig('2 - StrainPath.png',dpi=125)
-    fig1.savefig('1 - Sts-Delta-Rot.png',dpi=125)
+    fig4.savefig('4 - UProfile.png',dpi=125)
+    fig3.savefig('3 - Stn-Stn.png',dpi=125)
+    fig2.savefig('2 - Sts-Stn.png',dpi=125)
+    fig1.savefig('1 - Sts-Sts.png',dpi=125)
     fig0.savefig('BinderFig.pdf',bbox_inches='tight')
     p.close('all')
 else:
