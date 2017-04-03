@@ -14,8 +14,8 @@ try:
     savefigs = True
 except ValueError:
     expt = 2
-    FS = 30
-    SS = 10
+    FS = 15
+    SS = 5
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
     savefigs = True
 
@@ -39,7 +39,7 @@ if n.isnan(alpha):
 
 D = n.genfromtxt('Results.dat', delimiter=',')
 stg, time, F, P, sigx, sigq, LVDT, Disp = n.genfromtxt('STPF.dat', delimiter=',').T
-PROF = read_csv('./Profiles.dat', sep=',', comment='#', header=None, index_col=None).values
+PROF = read_csv('./ur_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
 profstg = n.genfromtxt('./zMisc/prof_stages.dat', delimiter=',', dtype=int)
 
 ##################################################

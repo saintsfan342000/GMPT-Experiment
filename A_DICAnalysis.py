@@ -32,7 +32,7 @@ Things to calculate
 Questions
 - What is average strain measurement?
 	Delta/L, from edges?  In Kork. you used a 1" GL axial extens.
-	
+
 Outstanding
 - Analysis of Localization needs special treatment
 
@@ -40,7 +40,7 @@ Outstanding
 proj = 'GMPT-2_FS30SS10'
 BIN = False
 makecontours = False
-saveAram = True                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
+saveAram = False                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
 print(" Have you added this experiment to the summary yet?")
 print(" Have you added this experiment to the summary yet?")
@@ -60,7 +60,7 @@ if BIN:
 else:
     arampath = 'D:/Users/user/Documents/AAA Scales/{}/AllPts'.format(proj)
     prefix = '{}-Stage-0-'.format(proj)
-    #last = len( glob.glob( '{}/{}*.txt'.format(arampath,prefix) ) ) - 1       
+    #last = len( glob.glob( '{}/{}*.txt'.format(arampath,prefix) ) ) - 1
 
 savepath = '../{}'.format(proj)
 saveprefix = '{}_'.format(proj)          #Prefix for the npy files
@@ -96,7 +96,7 @@ if not os.path.exists('STPF.dat'):
     headerline = '[0]Stage, [1]Time, [2]Force(kip), [3]Pressure(ksi), [4]NomAxSts(ksi), [5]NomHoopSts(ksi), [6]LVDT(volt), [7]MTSDisp(in)'
     n.savetxt('STPF.dat',X=STPF,fmt='%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
 else:
-    STPF = n.loadtxt('STPF.dat',delimiter=',')    
+    STPF = n.loadtxt('STPF.dat',delimiter=',')
     last = int(STPF[-1,0])
 
 
@@ -107,17 +107,15 @@ else:
     A = A[ ~n.any(n.isnan(A),axis=1), :]
     #[0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
 
-'''
 ###########################################################################
 # Make the contour in which we select the area we analyze for localization
-# IGNORING FOR NOW
 ###########################################################################
 if not os.path.exists('./zMisc/box_limits.dat'):
     x=A[:,2]
     y=A[:,3]
 
     #Calculation for each facet of the Logarithmic cumulative plastic strain
-    F=A[:,-4:].reshape(len(A[:,0]),2,2) 
+    F=A[:,-4:].reshape(len(A[:,0]),2,2)
     #FtF = n.einsum('...ij,...jk',F.transpose((0,2,1)),F)
     FtF = n.einsum('...ji,...jk',F,F) #Same as that commented out above. Kept the comment to recall how to transpose a stack of matrices
     U = mysqrtm( FtF )
@@ -126,12 +124,13 @@ if not os.path.exists('./zMisc/box_limits.dat'):
     LE0,LE1 = LE[:,0], LE[:,1]
     LEp = ne.evaluate('( 2/3 * ( LE0**2 + LE1**2 + (-LE0-LE1)**2 ) )**0.5')
 
+    stdLEP = nanstd(LEp)
     meanLEP = nanmean(LEp)
 
-    laststgcontour = p.figure(1,facecolor='w',figsize=(16,12))
-    p.tricontourf(x,y,LEp,linspace(meanLEP-1*stdLEP,meanLEP+5*stdLEP,256),extend='both',cmap='viridis')
+    laststgcontour = p.figure(1,facecolor='w',figsize=(6,12))
+    p.tricontourf(x,y,LEp,linspace(meanLEP-2*stdLEP,meanLEP+2*stdLEP,256),extend='both',cmap='viridis')
     p.axis([n.min(x)*1.1, 1.1*n.max(x), n.min(y), n.max(y)])
-    #p.axis('equal')
+    p.axis('equal')
     p.grid(True,linestyle='-',linewidth=2)
     p.xlabel('Undeformed X (in)')
     p.ylabel('Undeformed Y (in)')
@@ -141,28 +140,39 @@ if not os.path.exists('./zMisc/box_limits.dat'):
     Xmax = n.max( crop[:,0] )
     Ymin = n.min( crop[:,1] )
     Ymax = n.max( crop[:,1] )
-    
+
     headerline='Xmin, Xmax, Ymin, Ymax (all in inches!)'
     n.savetxt('./zMisc/box_limits.dat',X=array([Xmin, Xmax, Ymin, Ymax])[None,:],fmt='%.6f',delimiter=', ',header=headerline)
-    
+
     box_x = array([Xmin , Xmax , Xmax , Xmin , Xmin])
     box_y = array([Ymin , Ymin , Ymax , Ymax , Ymin])
     p.plot(box_x,box_y,'w',linewidth=2.5)
     p.grid(False)
+    p.colorbar()
     p.draw()
+    p.savefig('./LastStage.png')
+    p.close()
 else:
     Xmin,Xmax,Ymin,Ymax = n.genfromtxt('./zMisc/box_limits.dat',delimiter=',')
     box_x = array([Xmin , Xmax , Xmax , Xmin , Xmin])
     box_y = array([Ymin , Ymin , Ymax , Ymax , Ymin])
-'''
 
 # Calculate the facet size and spacing relative to thickness
 if not os.path.exists('./zMisc/facetsize.dat'):
-    Atemp = A[ (abs(A[:,2])<=0.2) & (abs(A[:,3])<=0.1) , :]
+    Atemp = A[ (abs(A[:,2])<=0.4) & (abs(A[:,3])<=0.5) , :]
     min_disp = n.min( pdist(Atemp[:,[2,3,4]]) )
     SS_th = (min_disp/thickness)
     FS_th = FS / SS * (min_disp/thickness)
     n.savetxt('./zMisc/facetsize.dat', X=[SS_th, FS_th], fmt='%.6f', header='[0]Step/thickness, [1]Size/thickness')
+else:
+    SS_th, FS_th = n.genfromtxt('./zMisc/facetsize.dat', delimiter=',')
+
+# Localization direction, determined by alpha
+# This is the orientation of the localization zone that develops
+if alpha >= 1.0:
+    locdir = 'Hoop'
+else:
+    locdir = 'Axial'
 
 # Create the 4 stations at which we'll plot profiles
 # We want the LL to be number 3
@@ -183,32 +193,11 @@ if not os.path.exists('./zMisc/prof_stages.dat'):
     profStg = n.empty(len(x), dtype=int)
     for i in range(len(x)):
         profStg[i] = n.where(STPF[:,6]>=x[i])[0][0]
-        
+
     headerline = 'Stages at which profiles were generated'
     n.savetxt('./zMisc/prof_stages.dat',X=profStg[None,:],fmt='%.0f',delimiter=', ',header=headerline)
 else:
     profStg = n.genfromtxt('./zMisc/prof_stages.dat',delimiter=',', dtype=int)
-'''
-# Go thru the stages and calc Ur/R
-urR = n.empty(last+1)
-for k in range(last+1):
-    if BIN == True:
-        A = n.load('{}/{}{:.0f}.npy'.format(arampath,prefix,k))
-    else:
-        A = read_csv('{}/{}{:.0f}.txt'.format(arampath,prefix,k),sep=',',na_values=' ',skiprows=3,header=None,index_col=None).values
-        A = A[ ~n.any(n.isnan(A),axis=1), :]
-        if saveAram:
-            n.save('./AramisBinary/{}{:.0f}'.format(saveprefix,k),A)
-    #[0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
-    A = A[ n.abs(A[:,3])<0.1, :]
-    # Interp deformed x and zoord from a linspace of x coors
-    xspace = linspace(.9*A[:,5].min(), .8*A[:,5].max(), n.unique(A[:,1]).shape[0])  
-    xzint = griddata( A[:,[5,3]], A[:,[5,7]], (xspace[None,:],n.array([[0]])), method='linear')[0]
-    R = CF(xzint)[-1]
-    if k == 0:
-        Ro = R
-    urR[k] = R/Ro - 1
-'''
 
 if not os.path.exists('./zMisc/disp_limits.dat'):
     ## Now identify the upper and lower ranges for calculating delta of the thick edges
@@ -229,21 +218,30 @@ if not os.path.exists('./zMisc/disp_limits.dat'):
 else:
     rdlim = n.sort(n.genfromtxt('./zMisc/disp_limits.dat',delimiter=','))
 
-# Initialize and define some things
-# Main data array
-# [0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
-D = n.empty((last+1, 7))
-# Linspace for best-fit circle
-yspace_bfc = linspace(-.1, .1, 3)[:,None]
-# Vertical profiles
-# First col:  Undeformed y-coords
-# next 4 cols:  -45 deg, 0deg, +45 deg, pratt BFC
-numpts = len( n.unique(A[:,0])) # number of yspace points
-PROFS = n.empty(( numpts,4*(last+1) + 1))*n.nan
-yspace_pro = linspace(-2,2,numpts)[:,None]
-PROFS[:,[0]] = yspace_pro  # First column assigned
-
-#Cycle through the stages
+# Initialize and define some things inside an if True just so its indented and readable
+if True:
+    # Main data array
+    # [0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
+    D = n.empty((last+1, 7))
+    # Linspace for best-fit circle
+    yspace_bfc = linspace(-.1, .1, 3)[:,None]
+    # Vertical profiles
+    # First col:  Undeformed y-coords
+    # next 4 cols:  -45 deg, 0deg, +45 deg, pratt BFC
+    numpts = len( n.unique(A[:,0])) # number of yspace points
+    ur_profs = n.empty(( numpts,4*(last+1) + 1))*n.nan
+    yspace_pro = linspace(-2,2,numpts)[:,None]
+    ur_profs[:,[0]] = yspace_pro  # First column assigned
+    # Initialize the strain profiles...want 5 wall thicknesses on each side of max point
+    index_diff = int(5 / SS_th  ) # The number of pts on each side of max
+    # Num rows:  2*number points on each side + the point itself
+    # First col: Undef r-q (if circumf.) or undef y (if axial profile). Subsequent col is each stage
+    LE_prof = n.empty(( 2*index_diff + 1, 1*(last+1) + 1 ))*n.nan
+    export_max=n.zeros( (last+1,9) )   #MaxPt data
+    export_mean=n.zeros( (last+1,8) )  #MeanPt data
+    export_stdv=n.zeros( (last+1,8) )  #Std Deviation data
+    export_MaxPt=n.zeros( (last+1,7) ) #The last stage's max point traced thru all stages
+    #Cycle through the stages
 for itcount, k in enumerate(range(last,-1,-1)):
     print('{}. Stage {}'.format(proj,k))
     if BIN:
@@ -259,7 +257,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     Q = n.arctan2(A[:,2], A[:,4])*180/n.pi
     q_rng = Q.max()-Q.min()
     q_mid = Q.min()+q_rng/2
-    F = A[:,-4:].reshape(len(A[:,0]),2,2)   # A "stack" of 2x2 deformation gradients 
+    F = A[:,-4:].reshape(len(A[:,0]),2,2)   # A "stack" of 2x2 deformation gradients
     FtF = n.einsum('...ji,...jk',F,F)
     U = mysqrtm( FtF )     #Explicit calculation of sqrtm
     #eigU = eigvalsh(U)  #Each row is the vector of eigenvalues for that row's matrix
@@ -273,7 +271,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     R =  n.sqrt(A[:,5]**2 + A[:,7]**2)
     # Append R, Ro, Q to A
     A = n.hstack(( A, Ro[:,None], R[:,None], Q[:,None] ))
-    
+
     # Point Coordinate Range.  abs(Y)<0.5 and +/- 20 degrees from q_mid
     rng = (abs(A[:,3]) < 0.5) & (Q <= q_mid+20) & (Q >= q_mid-20)
     # rng = (abs(A[:,3]) < 2) & (Q <= q_mid+20) & (Q >= q_mid-20) & (abs(A[:,3]) >1)  #### Higher up analysis
@@ -287,7 +285,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     D[k,2] = NEq[rng][keeps].mean()
     D[k,3] = NExq[rng][keeps].mean()
 
-    # Virtual axial extensometer 
+    # Virtual axial extensometer
     # Interp at +/- 0.5" undeformed for axial
     rng = (Q <= q_mid+10) & (Q >= q_mid-10)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
@@ -323,7 +321,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
         Atemp = A[ A[:,1] == J ]
     '''
     rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
-    Atemp = A[(A[:,3]>=1.2) & (A[:,3]<=2)]  #### Higher up analysis
+    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
     xzinterp = griddata( A[:,[2,3]], A[:,[2,4,5,7]], (xspace[None,:], yspace_pro), method='linear')
     for i in range(yspace_pro.shape[0]):
         if n.any( n.isnan( xzinterp[i] ) ):
@@ -332,41 +330,155 @@ for itcount, k in enumerate(range(last,-1,-1)):
         else:
             Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
             R = CF(xzinterp[i,:,[2,3]].T)[-1]
-            PROFS[i, k*4+4] = R/Ro - 1
+            ur_profs[i, k*4+4] = R/Ro - 1
 
     # Vertical profiles
     # Interp based on undef Q and undef Y to get R/Ro - 1
     rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
     #xspace = n.hstack(( -16/25.4, linspace( A[rng,2].min(), A[rng,2].max(), 3 ), 20/25.4))
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 3 )
-    PROFS[:, k*4+1:k*4+4]  = griddata( A[:,[2,3]], A[:,-2]/A[:,-3] - 1, (xspace[None,:], yspace_pro), method='linear')
-    
+    ur_profs[:, k*4+1:k*4+4]  = griddata( A[:,[2,3]], A[:,-2]/A[:,-3] - 1, (xspace[None,:], yspace_pro), method='linear')
+
     # Calculate delta from edges
     lower = A[ (A[:,3] >= rdlim[0]) & (A[:,3] <= rdlim[1]) & (n.abs(A[:,2]) <= 0.2), :]
     upper = A[ (A[:,3] >= rdlim[2]) & (A[:,3] <= rdlim[3]) & (n.abs(A[:,2]) <= 0.2), :]
     D[k,6] = n.mean(upper[:,6]) - n.mean(lower[:,6])
 
+    # Localization analysis
+    if k > 0:
+        LEp, NEx, NEy, NExy, gamma, xcoord, ycoord, aramX, aramY, NEx_alt, NEy_alt, gamma_alt = ( [] for _ in range(12) )
+        #[0]Index_x [1]Index_y [2,3,4]Undef_X,Y,Z inches [5,6,7]Def_X,Y,Z inches [8,9,10,11]DefGrad (11 12 21 22) *)
+        Abox = A[ (A[:,2]>=Xmin) & (A[:,2]<=Xmax) & (A[:,3]>=Ymin) & (A[:,3]<=Ymax), :]
+        F=Abox[:,8:12].reshape(len(Abox[:,0]),2,2)   # A "stack" of 2x2 deformation gradients
+        FtF = n.einsum('...ji,...jk',F,F)
+        U = mysqrtm( FtF )
+        eigU = eigvalsh(U)
+        LE = n.log(eigU)
+        LE0,LE1 = LE[:,0], LE[:,1]
+        colLEp = ne.evaluate('( 2/3 * ( LE0**2 + LE1**2 + (-LE0-LE1)**2 ) )**0.5')
+        colNEx = U[:,0,0] - 1
+        colNEy = U[:,1,1] - 1
+        colNExy = U[:,0,1]
+        colG = n.arctan(colNExy/(1+colNEx)) + n.arctan(colNExy/(1+colNEy))
+        colNEx_alt = F[:,0,0]-1
+        colNEy_alt = F[:,1,1]-1
+        colG_alt=n.arctan(F[:,0,1]/F[:,1,1]);
+        # What we have effectively done is created an additional column for each data point.
+        # Now I just need to sort though those which are in passable columns
+        if locdir == 'Axial':
+            parallel_indices = Abox[:,0].copy() # Aramis x index runs parallel to axial loc zone
+            cross_index_col = 1 # Aram_y indices cross the loc. zone
+        elif locdir == 'Hoop':
+            parallel_indices = Abox[:,1].copy() # Aramis y index runs parallel to hoop loc band
+            cross_index_col = 0
+        for j in n.unique( parallel_indices ):
+            rng = (parallel_indices == j)
+            cross_ind = Abox[ rng, cross_index_col]
+            if len(cross_ind) == (cross_ind.max() - cross_ind.min() +1):
+                locLEp = n.argmax(colLEp[rng])                #Location of...
+                LEp.append( colLEp[rng][locLEp] )             #Max LEp in the current column
+                NEx.append( colNEx[rng][locLEp] )
+                NEy.append( colNEy[rng][locLEp] )
+                gamma.append( colG[rng][locLEp] )
+                xcoord.append( Abox[rng,2][locLEp] )
+                ycoord.append( Abox[rng,3][locLEp] )
+                aramX.append( Abox[rng,0][locLEp] )
+                aramY.append( Abox[rng,1][locLEp] )
+                NEx_alt.append( colNEx_alt[rng][locLEp] )
+                NEy_alt.append( colNEy_alt[rng][locLEp] )
+                gamma_alt.append( colG_alt[rng][locLEp] )
 
-    
+        LEp, NEx, NEy, gamma, xcoord, ycoord, aramX, aramY = map(array,[LEp, NEx, NEy, gamma, xcoord, ycoord, aramX, aramY])    #Convert lists to arrays
+        NEx_alt, NEy_alt, gamma_alt = map(array,[NEx_alt, NEy_alt, gamma_alt])
+        '''
+        # Don't filter for now
+        ratio = NEy / NEx
+        ratioAvg = nanmean(ratio)
+        ratioSDEV = nanstd(ratio)
+        passed = (ratio >= ratioAvg - 1 * ratioSDEV) & (ratio <= ratioAvg + 1 * ratioSDEV)
+        '''
+        passed = n.ones_like(LEp, dtype=bool)
+        LEp=LEp[passed]
+        NEx=NEx[passed]
+        NEy=NEy[passed]
+        gamma=gamma[passed]
+        NEx_alt=NEx_alt[passed]
+        NEy_alt=NEy_alt[passed]
+        gamma_alt=gamma_alt[passed]
+        xcoord=xcoord[passed]
+        ycoord=ycoord[passed]
+        aramX = aramX[passed]
+        aramY = aramY[passed]
+
+        ## Max 10 stages and identify I,J of max point in last
+        locmax = n.argmax( LEp )
+        if k == last:
+            aramXmaxlast, aramYmaxlast = aramX[locmax], aramY[locmax]   #Save for making strain profiles
+            MaxTen = n.flipud(array( vstack( (LEp,aramX,aramY,xcoord,ycoord) ) ).T[n.argsort(LEp),:][-10:,:])
+
+        export_max[k] =  [ NEx[locmax], NEy[locmax], abs(gamma[locmax]),
+                           NEx_alt[locmax], NEy_alt[locmax], abs(gamma_alt[locmax]),
+                           LEp[locmax], aramX[locmax], aramY[locmax] ]
+        export_mean[k] = [ nanmean(NEx), nanmean(NEy), abs(nanmean(gamma)),
+                           nanmean(NEx_alt), nanmean(NEy_alt), abs(nanmean(gamma_alt)),
+                           nanmean(LEp), sum(passed)]
+        export_stdv[k] = [ nanstd(NEx), nanstd(NEy), abs( nanstd(gamma) ),
+                           nanstd(NEx_alt), nanstd(NEy_alt), abs(nanstd(gamma_alt)),
+                           nanstd(LEp), sum(passed)]
+        ## Store Last stage max point data
+        ## Find the row in Abox (or depth-layer in F, or index in LEp, etx.) where the max point is
+        rowmax = n.nonzero( (Abox[:,0]==aramXmaxlast) & (Abox[:,1]==aramYmaxlast) )[0]
+        if len(rowmax) != 0:
+            export_MaxPt[k] = [ colNEx[rowmax], colNEy[rowmax], colG[rowmax],
+                                colNEx_alt[rowmax], colNEy_alt[rowmax], colG_alt[rowmax], colLEp[rowmax] ]
+        else:
+            export_MaxPt[k] = [ n.nan, n.nan, n.nan, n.nan, n.nan, n.nan, n.nan ]
+
+
+    else:
+        export_max[k] =  [0,0,0,0,0,0,0,0,0]
+        export_mean[k] = [0,0,0,0,0,0,0,0]
+        export_stdv[k] = [0,0,0,0,0,0,0,0]
+        export_MaxPt[k]= [0,0,0,0,0,0,0]
+
+
+
+
 #########
 # End of Loop
 #########
 
-# delta/L 
+# delta/L
 GL = D[0,6]
 D[:,6]-=GL
-D[:,6]*=(1/GL) 
+D[:,6]*=(1/GL)
 
 # Correct stage 0
 D[0,:] = 0
 
 # Save data files!
 #########
-#[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
+# Results.dat
 headerline = '[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L, Lg={:.6f}'.format(GL)
 n.savetxt('Results.dat', X=D, fmt='%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
+# ur_profiles.dat
 headerline = ('First column:  Undef y-coord\n' +
              'k+1 to k+4 column:  Stage K ur/Ro for vert profile at X={:.3f}, {:.3f}, {:.3f} inches and using BFcirc'.format(*xspace))
-n.savetxt('Profiles.dat', X=PROFS, fmt='%.6f', delimiter=',', header=headerline)
+n.savetxt('ur_profiles.dat', X=ur_profs, fmt='%.6f', delimiter=',', header=headerline)
+# loc_max.dat
+headerline='[0]NEx [1]NEy [2]Gamma [3]F11-1 [4]F22-1 [5]atan(F12/F22) [6]epeq [7]AramX [8]AramY'
+n.savetxt('loc_max.dat', X=export_max, fmt='%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.0f, %.0f',header=headerline)
+# loc_mean.dat
+headerline='[0]NEx [1]NEy [2]Gamma [3]F11-1 [4]F22-1 [5]atan(F12/F22) [6]epeq [7]Num pts'
+n.savetxt('loc_mean.dat', X=export_mean, fmt='%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.0f',header=headerline)
+# loc_std.dat
+headerline='[0]NEx [1]NEy [2]Gamma [3]F11-1 [4]F22-1 [5]atan(F12/F22) [6]epeq [7]Num pts'
+n.savetxt('loc_std.dat', X=export_stdv, fmt='%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.0f',header=headerline)
+# MaxPt.dat
+headerline='Last Stage Last Point, traced thru whol exp.\n[0]NEx [1]NEy [2]Gamma [3]F11-1 [4]F22-1 [5]atan(F12/F22) [6]epeq'
+n.savetxt('MaxPt.dat', X=export_MaxPt, fmt='%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
+# Save the Max10
+headerline = '[0]Epeq [1]AramXIndex [2]AramYIndex [3]UndefXCoord [4]UndefYCoord'
+n.savetxt('Max10.dat',X=MaxTen,fmt='%.6f, %.0f, %.0f, %.6f, %.6f',header=headerline)
 
 
