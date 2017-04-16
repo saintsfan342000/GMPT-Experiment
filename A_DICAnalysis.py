@@ -37,8 +37,8 @@ Outstanding
 - Analysis of Localization needs special treatment
 
 '''
-proj = 'GMPT-2_FS30SS10'
-BIN = False
+proj = 'GMPT-2_FS15SS5'
+BIN = True
 makecontours = False
 saveAram = False                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
@@ -233,10 +233,10 @@ if True:
     yspace_pro = linspace(-2,2,numpts)[:,None]
     ur_profs[:,[0]] = yspace_pro  # First column assigned
     # Initialize the strain profiles...want 5 wall thicknesses on each side of max point
-    index_diff = int(5 / SS_th  ) # The number of pts on each side of max
+    index_diff = int(round(10/SS_th)) # The number of pts on each side of max
     # Num rows:  2*number points on each side + the point itself
     # First col: Undef r-q (if circumf.) or undef y (if axial profile). Subsequent col is each stage
-    LE_prof = n.empty(( 2*index_diff + 1, 1*(last+1) + 1 ))*n.nan
+    LEp_prof = n.empty(( 2*index_diff + 1, 1*(last+1) + 1 ))*n.nan
     export_max=n.zeros( (last+1,9) )   #MaxPt data
     export_mean=n.zeros( (last+1,8) )  #MeanPt data
     export_stdv=n.zeros( (last+1,8) )  #Std Deviation data
@@ -257,7 +257,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     Q = n.arctan2(A[:,2], A[:,4])*180/n.pi
     q_rng = Q.max()-Q.min()
     q_mid = Q.min()+q_rng/2
-    F = A[:,-4:].reshape(len(A[:,0]),2,2)   # A "stack" of 2x2 deformation gradients
+    F = A[:,8:12].reshape(len(A[:,0]),2,2)   # A "stack" of 2x2 deformation gradients
     FtF = n.einsum('...ji,...jk',F,F)
     U = mysqrtm( FtF )     #Explicit calculation of sqrtm
     #eigU = eigvalsh(U)  #Each row is the vector of eigenvalues for that row's matrix
@@ -272,6 +272,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     # Append R, Ro, Q to A
     A = n.hstack(( A, Ro[:,None], R[:,None], Q[:,None] ))
 
+    # Pointwise average
     # Point Coordinate Range.  abs(Y)<0.5 and +/- 20 degrees from q_mid
     rng = (abs(A[:,3]) < 0.5) & (Q <= q_mid+20) & (Q >= q_mid-20)
     # rng = (abs(A[:,3]) < 2) & (Q <= q_mid+20) & (Q >= q_mid-20) & (abs(A[:,3]) >1)  #### Higher up analysis
@@ -297,7 +298,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     D[k,4] = (x_hi-x_lo)-1
 
     # BF circ at +0.1, 0, and -0.1
-    rng = (Q <= q_mid + .3*q_rng) & (Q >= q_mid - .4*q_rng) & (abs(A[:,3])<1)
+    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30) & (abs(A[:,3])<1)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
     Atemp = A[(A[:,3]>=-0.2) & (A[:,3]<=0.2)]
     #Atemp = A[(A[:,3]>=1.2) & (A[:,3]<=2)]  #### Higher up analysis
@@ -314,12 +315,12 @@ for itcount, k in enumerate(range(last,-1,-1)):
     # BF Circles from -2 to +2
     # Consider finding out the min and max x by finding out the x coord of the most extreme but unbroken j-index column
     # The wider the arc over which we BF circle, the smoother the data
-    '''
-    Atemp = A[ n.abs(A[:,3] ) =< 2 ]
-    length, mins, maxes = [], [], []
-    for K,J in enumerate(n.unique(Atemp[:,1])):
-        Atemp = A[ A[:,1] == J ]
-    '''
+
+    #Atemp = A[ n.abs(A[:,3] ) =< 2 ]
+    #length, mins, maxes = [], [], []
+    #for K,J in enumerate(n.unique(Atemp[:,1])):
+    #    Atemp = A[ A[:,1] == J ]
+
     rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
     xzinterp = griddata( A[:,[2,3]], A[:,[2,4,5,7]], (xspace[None,:], yspace_pro), method='linear')
@@ -426,27 +427,57 @@ for itcount, k in enumerate(range(last,-1,-1)):
                            nanstd(NEx_alt), nanstd(NEy_alt), abs(nanstd(gamma_alt)),
                            nanstd(LEp), sum(passed)]
         ## Store Last stage max point data
-        ## Find the row in Abox (or depth-layer in F, or index in LEp, etx.) where the max point is
+        ## Find the row in Abox (or depth-layer in F, or index in LEp, etc.) where the max point is
         rowmax = n.nonzero( (Abox[:,0]==aramXmaxlast) & (Abox[:,1]==aramYmaxlast) )[0]
+        # In case the last stage max point doesn't show up in all stages, we have a if statement
         if len(rowmax) != 0:
             export_MaxPt[k] = [ colNEx[rowmax], colNEy[rowmax], colG[rowmax],
                                 colNEx_alt[rowmax], colNEy_alt[rowmax], colG_alt[rowmax], colLEp[rowmax] ]
+            ######################
+            #### LEp profiles ####
+            ######################
+            # Max point data is in Abox[rowmax]
+            # Atemp is a new subset of A that we will interpolate in
+            rng = (A[:,3]>=Abox[rowmax,3]-3*thickness) & (A[:,3]<=Abox[rowmax,3]+3*thickness)
+            Atemp = A[rng]
+            eigU = eigvalsh(U)  #Each row is the vector of eigenvalues for that row's matrix
+            F = Atemp[:,8:12].reshape(-1,2,2)   # A "stack" of 2x2 deformation gradients
+            FtF = n.einsum('...ji,...jk',F,F)
+            U = mysqrtm( FtF )     #Explicit calculation of sqrtm
+            eigU = eigvalsh(U)  #Each row is the vector of eigenvalues for that row's matrix
+            LE = n.log(eigU) #Element-wise
+            LE0,LE1 = LE[:,0], LE[:,1]
+            LEp = ne.evaluate('( 2/3 * ( LE0**2 + LE1**2 + (-LE0-LE1)**2 ) )**0.5')
+            if locdir == 'Axial':
+                # Interpolating with a y-coord identical to max point and 10-thicknesses on either side R-q
+                RQ = Atemp[:,12]*Atemp[:,14]*n.pi/180   # Arc length
+                RQ_max = Abox[rowmax,12]*Abox[rowmax,14]*n.pi/180
+                yspace = Abox[[rowmax],3][:,None]
+                RQspace = linspace( RQ_max-10*thickness, RQ_max+10*thickness,  len(LEp_prof[:,0]) )
+                LEp_prof[:,k+1] = griddata( vstack((RQ,Atemp[:,3])).T, LEp, (RQspace[None,:],yspace), method='linear').ravel()
+                if k == last:
+                    LEp_prof[:,0] = RQspace - RQ_max
+            elif locdir == 'Hoop':
+                # Interpolating with a x coord identical to max point and 10-thicknesses above and below
+                y_max = Abox[rowmax,3]
+                yspace = linspace(y_max-10*thickness, y_max+10*thickness, len(LEp_prof[:,0]))
+                xspace = Abox[[rowmax],2][None,:]
+                LEp_prof[:,k+1] = griddata( Atemp[:,[2,3]], LEp, (xspace,yspace[:,None]), method='linear').ravel()
+                if k == last:
+                    LEp_prof[:,0] = yspace
         else:
+            # If max point doesn't show up in this stage, then populate with nans
             export_MaxPt[k] = [ n.nan, n.nan, n.nan, n.nan, n.nan, n.nan, n.nan ]
-
-
+            LEp_prof[:,k+1] = n.nan
     else:
         export_max[k] =  [0,0,0,0,0,0,0,0,0]
         export_mean[k] = [0,0,0,0,0,0,0,0]
         export_stdv[k] = [0,0,0,0,0,0,0,0]
         export_MaxPt[k]= [0,0,0,0,0,0,0]
-
-
-
-
-#########
-# End of Loop
-#########
+        LEp_prof[:,k+1] = 0
+#################
+## End of Loop ##
+#################
 
 # delta/L
 GL = D[0,6]
@@ -480,5 +511,9 @@ n.savetxt('MaxPt.dat', X=export_MaxPt, fmt='%.6f, %.6f, %.6f, %.6f, %.6f, %.6f, 
 # Save the Max10
 headerline = '[0]Epeq [1]AramXIndex [2]AramYIndex [3]UndefXCoord [4]UndefYCoord'
 n.savetxt('Max10.dat',X=MaxTen,fmt='%.6f, %.0f, %.0f, %.6f, %.6f',header=headerline)
+# Save the LEp_profiles
+headerline = ('Col [0]: Undeformed RQ or y coord.\n' +
+              'Col [k+1]: Stage k LEp along profile')
+n.savetxt('LEp_profiles.dat', X=LEp_prof, fmt='%.6f', delimiter=',', header=headerline)
 
-
+os.system('python ../AA_PyScripts/B_Plots.py {} {} {} {}'.format(int(expt), int(FS), int(SS), savepath))

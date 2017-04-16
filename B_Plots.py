@@ -14,8 +14,8 @@ try:
     savefigs = True
 except ValueError:
     expt = 2
-    FS = 15
-    SS = 5
+    FS = 30
+    SS = 10
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
     savefigs = True
 
@@ -39,8 +39,11 @@ if n.isnan(alpha):
 
 D = n.genfromtxt('Results.dat', delimiter=',')
 stg, time, F, P, sigx, sigq, LVDT, Disp = n.genfromtxt('STPF.dat', delimiter=',').T
-PROF = read_csv('./ur_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
-profstg = n.genfromtxt('./zMisc/prof_stages.dat', delimiter=',', dtype=int)
+ur_prof = read_csv('./ur_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
+LEp_prof = read_csv('./LEp_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
+profStg = n.genfromtxt('./zMisc/prof_stages.dat', delimiter=',', dtype=int)
+
+titlestring = 'GMPT-{:.0f}, $\\alpha$ = {}.  FS{:.0f}SS{:.0f}. Tube {:.0f}-{:.0f}'.format(expt,alpha,FS,SS,material,tube)
 
 ##################################################
 # Figure 1 - AxSts vs Hoop
@@ -51,13 +54,13 @@ ax1 = p.gca()
 ax1.plot(sigq, sigx)
 m,b = n.polyfit(sigq, sigx, 1)
 colors = []
-for i in profstg:
+for i in profStg:
     l, = ax1.plot(sigq[i], sigx[i], 'o', mew=0)
     colors.append(l.get_mfc())
 ax1.axis(ymax=1.05*sigx.max())    
 ax1.set_xlabel('$\\sigma_{\\theta}$ ($\\mathsf{ksi}$)')
 ax1.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
-ax1.set_title('Nominal Stress Reponse')
+ax1.set_title('Nominal Stress Reponse\n{}'.format(titlestring), fontsize=14)
 f.eztext(ax1, '$\\alpha$ = {:.2f}\nP$_{{\\mathsf{{max}}}}$ = {:.0f} psi'.format(m,P.max()*1000), 'br')
 f.myax(ax1, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
 
@@ -68,20 +71,22 @@ p.style.use('mysty-12')
 fig2, ax21, ax22 = f.make12()
 ax21.plot(D[:,4]*1000, sigx, label='1" L$_g$')
 ax21.plot(D[:,1]*1000, sigx, label='Point Avg.')
-for k,i in enumerate(profstg):
+for k,i in enumerate(profStg):
     ax21.plot(D[i,1]*1000, sigx[i], 'o', color=colors[k])
 ax21.axis(ymax=1.05*sigx.max())    
 ax21.set_xlabel('$\\epsilon_\\mathsf{x}$($\\mathsf{x10}^\\mathsf{3})$')
 ax21.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
+ax21.set_title(titlestring, fontsize=14)
 leg = f.ezlegend(ax21, loc='lower right')
 f.myax(ax21, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
 
 ax22.plot(D[:,5], sigq, label='Circ. Fit')
 ax22.plot(D[:,2], sigq, label='Point Avg.')
-for k,i in enumerate(profstg):
+for k,i in enumerate(profStg):
     ax22.plot(D[i,5], sigq[i], 'o', color=colors[k])
 ax22.set_xlabel('$\\epsilon_\\theta$')
 ax22.set_ylabel('$\\sigma_\\theta$\n($\\mathsf{ksi}$)')
+ax22.set_title(titlestring, fontsize=14)
 leg = f.ezlegend(ax22, loc='lower right')
 f.myax(ax22, f.ksi2Mpa, '$\\sigma_{\\theta}$\n($\\mathsf{MPa}$)')
 
@@ -92,10 +97,11 @@ p.style.use('mysty')
 fig3 = p.figure()
 p.plot(D[:,2]*1000,D[:,1]*1000)
 ax3 = p.gca()
-for k,i in enumerate(profstg):
+for k,i in enumerate(profStg):
     ax3.plot(D[i,2]*1000, D[i,1]*1000, 'o', color=colors[k], ms=8)
 ax3.set_xlabel('$\\epsilon_\\theta$ ($\\mathsf{x10}^\\mathsf{3}$)')
 ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n($\\mathsf{x10}^\\mathsf{3}$)')
+ax3.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
 f.myax(ax3)
 
 ##################################################
@@ -106,13 +112,29 @@ p.rcParams['font.size'] = 18
 p.rcParams['axes.labelsize'] = 22
 fig4 = p.figure()
 ax4 = fig4.add_subplot(111)
-for k,i in enumerate(profstg):
-    ax4.plot(PROF[:,4*i+1:4*i+4], PROF[:,0]*2/4, alpha=0.35, color=colors[k])
-    #ax4.plot(PROF[:,4*i+3], PROF[:,0]*2/4, alpha=0.35, color=colors[k])
-    ax4.plot(PROF[:,4*i+4], PROF[:,0]*2/4, color=colors[k])
+for k,i in enumerate(profStg):
+    ax4.plot(ur_prof[:,4*i+1:4*i+4], ur_prof[:,0]*2/4, alpha=0.35, color=colors[k])
+    #ax4.plot(ur_prof[:,4*i+3], ur_prof[:,0]*2/4, alpha=0.35, color=colors[k])
+    ax4.plot(ur_prof[:,4*i+4], ur_prof[:,0]*2/4, color=colors[k])
 ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$')
 ax4.set_ylabel('$\\frac{\\mathsf{y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
+ax4.set_title('Radial Displacement Profiles\n{}'.format(titlestring), fontsize=14)
 f.myax(ax4, HW=1, HL=0.035)
+
+##################################################
+# Figure 5 - LEp Profile thru max point
+##################################################
+p.style.use('mysty-12')
+p.rcParams['font.size'] = 18
+p.rcParams['axes.labelsize'] = 22
+fig5 = p.figure(figsize=(12,6))
+ax5 = fig5.add_axes([.12,.12,.8,.78])
+for k,i in enumerate(profStg):
+    ax5.plot(LEp_prof[:,0]/thickness, LEp_prof[:,i+1], color=colors[k])
+ax5.set_xlabel('s/t$_\\mathsf{o}$')
+ax5.set_ylabel('e$_\\mathsf{e}$')
+ax5.set_title(titlestring)
+f.myax(ax5,TW=.0025,HW=.3,HL=.05,OH=.2)
 
 ##################################################
 # Figure 0 - Binder Figs
@@ -147,7 +169,8 @@ ax02.text(.5, .48, '$\\alpha_\\mathsf{{true}}$ = {:.2f}'.format(a_true),
           ha='center', va='center', transform=fig0.transFigure) 
 
 if savefigs:
-    fig4.savefig('4 - UProfile.png',dpi=125)
+    fig5.savefig('5 - LEp_profile.png',dpi=125)
+    fig4.savefig('4 - Ur_profile.png',dpi=125)
     fig3.savefig('3 - Stn-Stn.png',dpi=125)
     fig2.savefig('2 - Sts-Stn.png',dpi=125)
     fig1.savefig('1 - Sts-Sts.png',dpi=125)
