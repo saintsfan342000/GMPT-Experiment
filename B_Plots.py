@@ -13,7 +13,7 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 2
+    expt = 1
     FS = 30
     SS = 10
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
@@ -117,7 +117,7 @@ for k,i in enumerate(profStg):
     #ax4.plot(ur_prof[:,4*i+3], ur_prof[:,0]*2/4, alpha=0.35, color=colors[k])
     ax4.plot(ur_prof[:,4*i+4], ur_prof[:,0]*2/4, color=colors[k])
 ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$')
-ax4.set_ylabel('$\\frac{\\mathsf{y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
+ax4.set_ylabel('$\\frac{\\mathsf{2y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
 ax4.set_title('Radial Displacement Profiles\n{}'.format(titlestring), fontsize=14)
 f.myax(ax4, HW=1, HL=0.035)
 
@@ -151,17 +151,24 @@ titlestring = 'GMPT-{:.0f}, $\\alpha$ = {}.  {}.  Tube {:.0f}-{:.0f}'.format(
 ax01.set_title(titlestring)
 ax01.axis(xmin=0,ymin=0)
 pmax = P.argmax()
-f.eztext(ax01, 'P$_\\mathsf{{max}}$ = {:.0f}'.format(P[pmax]*1000), 'br')
+infostr = ('P$_\\mathsf{{LL}}$ = {:.0f} psi\n'.format(P[pmax]*1000) + 
+           'F$_\\mathsf{{LL}}$ = {:.0f} lb\n'.format(F[pmax]*1000) + 
+           '$\\delta_\\mathsf{{LL}}$ = {:.3f}$\\mathsf{{x10}}^{{-\\mathsf{{2}}}}$ in'.format(Disp[pmax]*100)
+           )
+f.eztext(ax01, infostr, 'br')
 ax01.plot(time[pmax], P[pmax]*1000,'r^',mec='r')
 f.myax(ax01)
 
-ax02.plot(Disp, P*1000,'b')
-ax02.set_xlabel('$\\delta_\\mathsf{MTS}$ (s)')
-ax02.set_ylabel('P\n(psi)')
-#ax02.axis(xmin=0,ymin=0)
-pmax = P.argmax()
-f.eztext(ax02, 'P$_\\mathsf{{max}}$ = {:.0f}'.format(P[pmax]*1000), 'br')
-ax02.plot(Disp[pmax], P[pmax]*1000,'r^',mec='r')
+if alpha == 0.5:
+    ax02.plot(Disp, P*1000,'b')
+    ax02.plot(Disp[pmax], P[pmax]*1000,'r^',mec='r')
+    ax02.set_ylabel('P\n(psi)')
+else:
+    ax02.plot(Disp, F*1000,'b')
+    ax02.plot(Disp[pmax], F[pmax]*1000,'r^',mec='r')
+    ax02.set_ylabel('F\n(lb)')
+ax02.set_xlabel('$\\delta_\\mathsf{MTS}$ (in)')
+f.eztext(ax02, infostr, 'br')
 f.myax(ax02)
 # Calculate a_true and plop it in between
 a_true = n.polyfit(sigq, sigx,1 )[0]

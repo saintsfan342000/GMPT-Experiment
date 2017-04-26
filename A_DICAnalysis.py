@@ -37,9 +37,9 @@ Outstanding
 - Analysis of Localization needs special treatment
 
 '''
-proj = 'GMPT-2_FS15SS5'
+proj = 'GMPT-1_FS15SS5'
 BIN = True
-makecontours = False
+makecontours = True
 saveAram = False                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
 print(" Have you added this experiment to the summary yet?")
@@ -59,6 +59,11 @@ if BIN:
     # calculation of last moved to STPF[-1,0] rather than last aramfile
 else:
     arampath = 'D:/Users/user/Documents/AAA Scales/{}/AllPts'.format(proj)
+    # If that path don't exist then try Martin Deep drive
+    if not os.path.exists(arampath):
+        arampath = 'F:/GMPT/{}/AllPts'.format(proj)
+    if not os.path.exists(arampath):
+        raise FileNotFoundError('\nThe arampath does not exist.\n{}\n\n'.format(arampath))
     prefix = '{}-Stage-0-'.format(proj)
     #last = len( glob.glob( '{}/{}*.txt'.format(arampath,prefix) ) ) - 1
 
@@ -77,7 +82,7 @@ os.chdir(savepath)
 # Make STPF file
 ###########################################################################
 if not os.path.exists('STPF.dat'):
-    ST = n.genfromtxt('./zMisc/ST.dat', delimiter=',')
+    ST = n.genfromtxt('./zMisc/ST.dat', delimiter=',', skip_header=3)
     last = int(ST[-1,0])
     ## Read csv, flexible enough for spaces and tabs
     #[0]Pressure(psi)	[1]LVDT(V)  [2]Force(lbf)   [3]Disp.(in)    [4]Time(s)
@@ -228,7 +233,7 @@ if True:
     # Vertical profiles
     # First col:  Undeformed y-coords
     # next 4 cols:  -45 deg, 0deg, +45 deg, pratt BFC
-    numpts = len( n.unique(A[:,0])) # number of yspace points
+    numpts = 4 * 8 # number of yspace points reduced for speed
     ur_profs = n.empty(( numpts,4*(last+1) + 1))*n.nan
     yspace_pro = linspace(-2,2,numpts)[:,None]
     ur_profs[:,[0]] = yspace_pro  # First column assigned
@@ -290,18 +295,27 @@ for itcount, k in enumerate(range(last,-1,-1)):
     # Interp at +/- 0.5" undeformed for axial
     rng = (Q <= q_mid+10) & (Q >= q_mid-10)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    Atemp = A[(A[:,3]>=0.4) & (A[:,3]<=0.6)]
+    Atemp = A[(A[:,3]>=.5-thickness) & (A[:,3]<=0.5+thickness)]
     x_hi = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[.5]])))[0].mean()
-    Atemp = A[(A[:,3]<=-0.4) & (A[:,3]>=-0.6)]
+    Atemp = A[(A[:,3]<=-0.5+thickness) & (A[:,3]>=-0.5-thickness)]
     x_lo = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[-.5]])))[0].mean()
     # Assign
     D[k,4] = (x_hi-x_lo)-1
-
+    
     # BF circ at +0.1, 0, and -0.1
-    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30) & (abs(A[:,3])<1)
+    # Do I still need this?  Can't I just pull the data our of ur_profs??
+    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30) & (abs(A[:,3])<.2)
     xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    Atemp = A[(A[:,3]>=-0.2) & (A[:,3]<=0.2)]
-    #Atemp = A[(A[:,3]>=1.2) & (A[:,3]<=2)]  #### Higher up analysis
+    rng =  (
+            (Q <= q_mid + 32) & 
+            (Q >= q_mid - 32) & 
+            (
+             ((A[:,3]<=0.1+thickness) & (A[:,3]>=0.1-thickness)) | 
+             ((A[:,3]<=0.0+thickness) & (A[:,3]>=0.0-thickness)) | 
+             ((A[:,3]<=-0.1+thickness) & (A[:,3]>=-0.1-thickness))
+            )
+           )
+    Atemp = A[rng]
     xzinterp = griddata( Atemp[:,[2,3]], Atemp[:,[2,4,5,7]], (xspace[None,:], yspace_bfc), method='linear')
     # This interpolatin is of shape ( len(yspace_bfc), len(xspace), len(Atemp[0]) )
     # i.e. (number of y pts, number of x pts, number of columns interpolated)
@@ -312,33 +326,33 @@ for itcount, k in enumerate(range(last,-1,-1)):
     # Assign
     D[k,5] = R/Ro - 1
 
-    # BF Circles from -2 to +2
-    # Consider finding out the min and max x by finding out the x coord of the most extreme but unbroken j-index column
-    # The wider the arc over which we BF circle, the smoother the data
+    # BF Circle along length for Ur/R profile
+    # Looping b/c there is great time-savings in using a minimal size Atemp within griddata
+    # This also allows me to use a much larger qspace, providing better CFs
+    for i,y in enumerate(yspace_pro.ravel()):
+        Atemp = A [(A[:,3]>=y-thickness) & (A[:,3]<=y+thickness) ]
+        q0, q1 = Atemp[:,-1].min()+10, Atemp[:,-1].max()-10
+        qspace = linspace( q0, q1, 2*len(n.unique(A[rng,1])) )
+        xzinterp = griddata( Atemp[:,[-1,3]], Atemp[:,[2,4,5,7]], (qspace[None,:], yspace_pro), method='linear')
+        Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
+        R = CF(xzinterp[i,:,[2,3]].T)[-1]
+        ur_profs[i, k*4+4] = R/Ro - 1
 
-    #Atemp = A[ n.abs(A[:,3] ) =< 2 ]
-    #length, mins, maxes = [], [], []
-    #for K,J in enumerate(n.unique(Atemp[:,1])):
-    #    Atemp = A[ A[:,1] == J ]
 
-    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
-    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    xzinterp = griddata( A[:,[2,3]], A[:,[2,4,5,7]], (xspace[None,:], yspace_pro), method='linear')
-    for i in range(yspace_pro.shape[0]):
-        if n.any( n.isnan( xzinterp[i] ) ):
-            pass
-            print('fuck')
-        else:
-            Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
-            R = CF(xzinterp[i,:,[2,3]].T)[-1]
-            ur_profs[i, k*4+4] = R/Ro - 1
 
     # Vertical profiles
     # Interp based on undef Q and undef Y to get R/Ro - 1
     rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
-    #xspace = n.hstack(( -16/25.4, linspace( A[rng,2].min(), A[rng,2].max(), 3 ), 20/25.4))
-    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 3 )
-    ur_profs[:, k*4+1:k*4+4]  = griddata( A[:,[2,3]], A[:,-2]/A[:,-3] - 1, (xspace[None,:], yspace_pro), method='linear')
+    q0,q1,q2 = A[rng,-1].min(), q_mid, A[rng,-1].max()
+    qspace = n.array([q0,q1,q2]) 
+    rng = (
+           ((Q<=q0+3) & (Q>=q0-3)) |
+           ((Q<=q1+3) & (Q>=q1-3)) |
+           ((Q<=q2+3) & (Q>=q2-3))
+          )
+    Atemp = A[rng]
+    ur_profs[:, k*4+1:k*4+4]  = griddata(Atemp[:,[-1,3]], Atemp[:,-2]/Atemp[:,-3] - 1, 
+                                         (qspace[None,:], yspace_pro), method='linear')
 
     # Calculate delta from edges
     lower = A[ (A[:,3] >= rdlim[0]) & (A[:,3] <= rdlim[1]) & (n.abs(A[:,2]) <= 0.2), :]
