@@ -8,8 +8,8 @@ p.style.use('mysty')
 import glob
 import os
 
-expt = 3
-size_factor = .65
+expt = 7
+size_factor = 1
 FS = 15
 SS = 5
 path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)

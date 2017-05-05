@@ -5,7 +5,6 @@ import os
 from sys import argv
 import figfun as f
 
-
 try:
     worthless, expt, FS, SS, path = argv
     expt = int(expt)
@@ -13,9 +12,9 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 1
-    FS = 30
-    SS = 10
+    expt = 7
+    FS = 15
+    SS = 5
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
     savefigs = True
 
@@ -57,7 +56,7 @@ colors = []
 for i in profStg:
     l, = ax1.plot(sigq[i], sigx[i], 'o', mew=0)
     colors.append(l.get_mfc())
-ax1.axis(ymax=1.05*sigx.max())    
+ax1.axis([0,1.05*sigq.max(),0,1.05*sigx.max()])    
 ax1.set_xlabel('$\\sigma_{\\theta}$ ($\\mathsf{ksi}$)')
 ax1.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
 ax1.set_title('Nominal Stress Reponse\n{}'.format(titlestring), fontsize=14)
@@ -83,7 +82,7 @@ f.myax(ax21, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
 ax22.plot(D[:,5], sigq, label='Circ. Fit')
 ax22.plot(D[:,2], sigq, label='Point Avg.')
 for k,i in enumerate(profStg):
-    ax22.plot(D[i,5], sigq[i], 'o', color=colors[k])
+    ax22.plot(D[i,2], sigq[i], 'o', color=colors[k])
 ax22.set_xlabel('$\\epsilon_\\theta$')
 ax22.set_ylabel('$\\sigma_\\theta$\n($\\mathsf{ksi}$)')
 ax22.set_title(titlestring, fontsize=14)
@@ -172,7 +171,7 @@ f.eztext(ax02, infostr, 'br')
 f.myax(ax02)
 # Calculate a_true and plop it in between
 a_true = n.polyfit(sigq, sigx,1 )[0]
-ax02.text(.5, .48, '$\\alpha_\\mathsf{{true}}$ = {:.2f}'.format(a_true),
+ax02.text(.5, .48, '$\\alpha_\\mathsf{{true}}$ = {:.5f}'.format(a_true),
           ha='center', va='center', transform=fig0.transFigure) 
 
 if savefigs:

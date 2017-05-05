@@ -29,18 +29,13 @@ Things to calculate
 - Calc axial stn using d/L from edges, d/L 1" GL, avg of point stn
 - Calc hoop stn using ur/R and average of points
 
-Questions
-- What is average strain measurement?
-	Delta/L, from edges?  In Kork. you used a 1" GL axial extens.
-
-Outstanding
-- Analysis of Localization needs special treatment
+- Analysis of Localization
 
 '''
-proj = 'GMPT-1_FS15SS5'
+proj = 'GMPT-7_FS15SS5'
 BIN = True
 makecontours = True
-saveAram = False                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
+saveAram = True                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
 print(" Have you added this experiment to the summary yet?")
 print(" Have you added this experiment to the summary yet?")
@@ -82,19 +77,25 @@ os.chdir(savepath)
 # Make STPF file
 ###########################################################################
 if not os.path.exists('STPF.dat'):
-    ST = n.genfromtxt('./zMisc/ST.dat', delimiter=',', skip_header=3)
+    ST = n.genfromtxt('./zMisc/ST.dat', delimiter=',')
     last = int(ST[-1,0])
     ## Read csv, flexible enough for spaces and tabs
-    #[0]Pressure(psi)	[1]LVDT(V)  [2]Force(lbf)   [3]Disp.(in)    [4]Time(s)
+    #[0]Pressure(psi)	[1]LVDT(V)  [2]Force(lbf)   [3]Disp.(in)    [4]FunctionGen Voltage [5]Time(s)
     LV = read_csv('./zMisc/GMPT-{:.0f}_LV.dat'.format(expt),header=None,skiprows=1,comment='#',index_col=None,skipinitialspace=True,sep='\s*',engine='python').values
     STPF = n.empty( (len(ST[:,0]),8) )
     # STPF will be:
     # [0]Stage, [1]Time, [2]Force(kip), [3]Pressure(ksi), [4]NomAxSts(ksi), [5]NomHoopSts(ksi), [6]LVDT(volt), [7]MTSDisp(in)
     STPF[:,[0,1]] = ST
     STPF[0,1] = LV[0,-1] # In case LV writes its first just after 0 sec
-    LVint = interp1d(LV[:,-1],LV[:,:-1],axis=0).__call__(STPF[:,1])
+    LVint = interp1d(LV[:,-1],LV[:,:-1],axis=0).__call__(STPF[:,1]) # LVint is LV except time
     LVint[:,[0,2]]*=.001 #to kip, ksi)
-    STPF[:,[3,6,2,7]] = LVint
+    if LV.shape[1] == 5:
+        # Then we do not have a Function Generator voltage
+        STPF[:,[3,6,2,7]] = LVint
+    elif LV.shape[1] == 6:
+        # Then we do have a function generator voltage
+        STPF[:,[3,6,2,7]] = LVint[:,:-1]  # Exclude FnGen Voltage
+        n.savetxt('./zMisc/FnGen.dat',X=n.vstack((ST[:,0],LVint[:,-1])).T, fmt='%.0f, %.6f',header='[0]Stage, [1]FnGen Voltage')
     STPF[:,4] = (STPF[:,2]/(2*n.pi*Rm*thickness) + STPF[:,3]*Rm/(2*thickness))
     STPF[:,5] = STPF[:,3]*Rm/thickness
     STPF[:,[6,7]]-=STPF[0,[6,7]]    #Initialize MTS disp and LVDT
