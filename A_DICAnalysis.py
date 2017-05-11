@@ -32,14 +32,15 @@ Things to calculate
 - Analysis of Localization
 
 '''
-proj = 'GMPT-4_FS15SS5'
+proj = 'GMPT-4_FS30SS10'
 BIN = True
 makecontours = True
 saveAram = True                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
-analyze_localization = True
-analyze_LEpProfs = True
-analyze_urProfs = True
+analyze_basic_results = False # Whether to overwrite basic results
+analyze_localization = False # Whether to scan localization for max point
+analyze_LEpProfs = False # Whether to make LEpProf thru max point
+analyze_urProfs = True   # Whether to make urProf thru max point and using BF circ
 
 print(" Have you added this experiment to the summary yet?")
 print(" Have you added this experiment to the summary yet?")
@@ -228,7 +229,10 @@ if not os.path.exists('./zMisc/disp_limits.dat'):
 else:
     rdlim = n.sort(n.genfromtxt('./zMisc/disp_limits.dat',delimiter=','))
 
-# Initialize and define some things inside an if True just so its indented and readable
+######################
+##### Initialize #####
+#### Empty Arrays ####
+######################
 if True:
     # Main data array
     # [0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L
@@ -239,7 +243,7 @@ if True:
     # First col:  Undeformed y-coords
     # next 4 cols:  -45 deg, 0deg, +45 deg, pratt BFC
     numpts = 4 * 8 # number of yspace points reduced for speed
-    ur_profs = n.empty(( numpts,4*(last+1) + 1))*n.nan
+    ur_profs = n.empty(( numpts,3*(last+1) + 1))*n.nan
     yspace_pro = linspace(-2,2,numpts)[:,None]
     ur_profs[:,[0]] = yspace_pro  # First column assigned
     # Initialize the strain profiles...want 5 wall thicknesses on each side of max point
@@ -252,7 +256,9 @@ if True:
     export_stdv=n.zeros( (last+1,8) )  #Std Deviation data
     export_MaxPt=n.zeros( (last+1,7) ) #The last stage's max point traced thru all stages
 
-#Cycle through the stages
+######################
+# Iterate Thru Stage #
+######################
 for itcount, k in enumerate(range(last,-1,-1)):
     print('{}. Stage {}'.format(proj,k))
     if BIN:
@@ -324,7 +330,8 @@ for itcount, k in enumerate(range(last,-1,-1)):
                 NEy_alt1.append( colNEy_alt[rng][locLEp] )
                 gamma_alt1.append( colG_alt[rng][locLEp] )
 
-        LEp1, NEx1, NEy1, gamma1, xcoord1, ycoord1, aramX1, aramY1 = map(array,[LEp1, NEx1, NEy1, gamma1, xcoord1, ycoord1, aramX1, aramY1])    #Convert lists to arrays
+        LEp1, NEx1, NEy1, gamma1, xcoord1, ycoord1, aramX1, aramY1 = map(array,
+                [LEp1, NEx1, NEy1, gamma1, xcoord1, ycoord1, aramX1, aramY1])    #Convert lists to arrays
         NEx_alt1, NEy_alt1, gamma_alt1 = map(array,[NEx_alt1, NEy_alt1, gamma_alt1])
         '''
         # Don't filter for now
@@ -409,86 +416,88 @@ for itcount, k in enumerate(range(last,-1,-1)):
         else:
             LEp_prof[:,k+1] = 0
 
-    # Pointwise average
-    # Point Coordinate Range.  abs(Y)<0.5 and +/- 20 degrees from q_mid
-    rng = (abs(A[:,3]) < 0.5) & (Q <= q_mid+20) & (Q >= q_mid-20)
-    # rng = (abs(A[:,3]) < 2) & (Q <= q_mid+20) & (Q >= q_mid-20) & (abs(A[:,3]) >1)  #### Higher up analysis
-    # Filter based on axial-hoop strain ratio
-    ratmean = (NEx/NEq)[rng].mean()
-    ratdev = (NEx/NEq)[rng].std()
-    keeps = ((NEx/NEq)[rng]<=ratmean+1*ratdev) & ((NEx/NEq)[rng]>=ratmean-1*ratdev)
-    # Assign
-    D[k,0] = k
-    D[k,1] = NEx[rng][keeps].mean()
-    D[k,2] = NEq[rng][keeps].mean()
-    D[k,3] = NExq[rng][keeps].mean()
+    ######################
+    #### Basic Results ###
+    ## Lots of griddata ##
+    ######################
+    if analyze_basic_results:
+        # Pointwise average
+        # Point Coordinate Range.  abs(Y)<0.5 and +/- 20 degrees from q_mid
+        rng = (abs(A[:,3]) < 0.5) & (Q <= q_mid+20) & (Q >= q_mid-20)
+        # rng = (abs(A[:,3]) < 2) & (Q <= q_mid+20) & (Q >= q_mid-20) & (abs(A[:,3]) >1)  #### Higher up analysis
+        # Filter based on axial-hoop strain ratio
+        ratmean = (NEx/NEq)[rng].mean()
+        ratdev = (NEx/NEq)[rng].std()
+        keeps = ((NEx/NEq)[rng]<=ratmean+1*ratdev) & ((NEx/NEq)[rng]>=ratmean-1*ratdev)
+        # Assign
+        D[k,0] = k
+        D[k,1] = NEx[rng][keeps].mean()
+        D[k,2] = NEq[rng][keeps].mean()
+        D[k,3] = NExq[rng][keeps].mean()       # Virtual axial extensometer
+        # Interp at +/- 0.5" undeformed for axial
+        rng = (Q <= q_mid+10) & (Q >= q_mid-10)
+        xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
+        Atemp = A[(A[:,3]>=.5-thickness) & (A[:,3]<=0.5+thickness)]
+        x_hi = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[.5]])))[0].mean()
+        Atemp = A[(A[:,3]<=-0.5+thickness) & (A[:,3]>=-0.5-thickness)]
+        x_lo = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[-.5]])))[0].mean()
+        # Assign
+        D[k,4] = (x_hi-x_lo)-1
+        
+        # BF circ at +0.1, 0, and -0.1
+        # Do I still need this?  Can't I just pull the data our of ur_profs??
+        rng = (Q <= q_mid + 30) & (Q >= q_mid - 30) & (abs(A[:,3])<.2)
+        xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
+        rng =  (
+                (Q <= q_mid + 32) & 
+                (Q >= q_mid - 32) & 
+                (
+                 ((A[:,3]<=0.1+thickness) & (A[:,3]>=0.1-thickness)) | 
+                 ((A[:,3]<=0.0+thickness) & (A[:,3]>=0.0-thickness)) | 
+                 ((A[:,3]<=-0.1+thickness) & (A[:,3]>=-0.1-thickness))
+                )
+               )
+        Atemp = A[rng]
+        xzinterp = griddata( Atemp[:,[2,3]], Atemp[:,[2,4,5,7]], (xspace[None,:], yspace_bfc), method='linear')
+        # This interpolatin is of shape ( len(yspace_bfc), len(xspace), len(Atemp[0]) )
+        # i.e. (number of y pts, number of x pts, number of columns interpolated)
+        Ro, R = 0.0, 0.0
+        for i in range(yspace_bfc.shape[0]):
+            Ro += CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
+            R += CF(xzinterp[i,:,[2,3]].T)[-1]
+        # Assign
+        D[k,5] = R/Ro - 1
+        # Calculate delta from edges
+        lower = A[ (A[:,3] >= rdlim[0]) & (A[:,3] <= rdlim[1]) & (n.abs(A[:,2]) <= 0.2), :]
+        upper = A[ (A[:,3] >= rdlim[2]) & (A[:,3] <= rdlim[3]) & (n.abs(A[:,2]) <= 0.2), :]
+        D[k,6] = n.mean(upper[:,6]) - n.mean(lower[:,6])
 
-    # Virtual axial extensometer
-    # Interp at +/- 0.5" undeformed for axial
-    rng = (Q <= q_mid+10) & (Q >= q_mid-10)
-    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    Atemp = A[(A[:,3]>=.5-thickness) & (A[:,3]<=0.5+thickness)]
-    x_hi = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[.5]])))[0].mean()
-    Atemp = A[(A[:,3]<=-0.5+thickness) & (A[:,3]>=-0.5-thickness)]
-    x_lo = griddata( Atemp[:,[2,3]], Atemp[:,6], (xspace[None,:],array([[-.5]])))[0].mean()
-    # Assign
-    D[k,4] = (x_hi-x_lo)-1
-    
-    # BF circ at +0.1, 0, and -0.1
-    # Do I still need this?  Can't I just pull the data our of ur_profs??
-    rng = (Q <= q_mid + 30) & (Q >= q_mid - 30) & (abs(A[:,3])<.2)
-    xspace = linspace( A[rng,2].min(), A[rng,2].max(), 2*len(n.unique(A[rng,1])) )
-    rng =  (
-            (Q <= q_mid + 32) & 
-            (Q >= q_mid - 32) & 
-            (
-             ((A[:,3]<=0.1+thickness) & (A[:,3]>=0.1-thickness)) | 
-             ((A[:,3]<=0.0+thickness) & (A[:,3]>=0.0-thickness)) | 
-             ((A[:,3]<=-0.1+thickness) & (A[:,3]>=-0.1-thickness))
-            )
-           )
-    Atemp = A[rng]
-    xzinterp = griddata( Atemp[:,[2,3]], Atemp[:,[2,4,5,7]], (xspace[None,:], yspace_bfc), method='linear')
-    # This interpolatin is of shape ( len(yspace_bfc), len(xspace), len(Atemp[0]) )
-    # i.e. (number of y pts, number of x pts, number of columns interpolated)
-    Ro, R = 0.0, 0.0
-    for i in range(yspace_bfc.shape[0]):
-        Ro += CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
-        R += CF(xzinterp[i,:,[2,3]].T)[-1]
-    # Assign
-    D[k,5] = R/Ro - 1
-
-    # BF Circle along length for Ur/R profile
-    # Looping b/c there is great time-savings in using a minimal size Atemp within griddata
-    # This also allows me to use a much larger qspace, providing better CFs
+    ######################
+    #### Ur/R profiles ###
+    ######################
     if analyze_urProfs:
+        if k==last and (analyze_localization is False):
+            # Then we need the max point aramX and aramY from Max10.dat since we won't get it from loc analysis
+            aramXmaxlast, aramYmaxlast = n.genfromtxt('Max10.dat', delimiter=',')[0,[1,2]]
+        
+        # Vertical profile thru max point
+        rng = (A[:,-1]>=q_mid-45) & (A[:,-1]<=q_mid+45) 
+        rng = (A[:,1] == aramYmaxlast)
+        ur_profs[:, k*3+1] = interp1d(A[rng,3],NEq[rng], fill_value='extrapolate').__call__(yspace_pro.ravel())       
+        Atemp = A[ A[:,1] == aramYmaxlast ]
+        ur_profs[:, k*3+2] = interp1d(Atemp[:,3],Atemp[:,13]/Atemp[:,12]-1, fill_value='extrapolate').__call__(yspace_pro.ravel())       
+        
+        # BF Circle along length for Ur/R profile
+        # Looping b/c there is great time-savings in using a minimal size Atemp within griddata
+        # This also allows me to use a much larger qspace, providing better CFs
         for i,y in enumerate(yspace_pro.ravel()):
             Atemp = A [(A[:,3]>=y-thickness) & (A[:,3]<=y+thickness) ]
             q0, q1 = Atemp[:,-1].min()+10, Atemp[:,-1].max()-10
-            qspace = linspace( q0, q1, 2*len(n.unique(A[rng,1])) )
+            qspace = linspace( q0, q1, 2*len(n.unique(Atemp[:,1])) )
             xzinterp = griddata( Atemp[:,[-1,3]], Atemp[:,[2,4,5,7]], (qspace[None,:], yspace_pro), method='linear')
             Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
             R = CF(xzinterp[i,:,[2,3]].T)[-1]
-            ur_profs[i, k*4+4] = R/Ro - 1
-
-        # Vertical profiles
-        # Interp based on undef Q and undef Y to get R/Ro - 1
-        rng = (Q <= q_mid + 30) & (Q >= q_mid - 30)
-        q0,q1,q2 = A[rng,-1].min(), q_mid, A[rng,-1].max()
-        qspace = n.array([q0,q1,q2]) 
-        rng = (
-               ((Q<=q0+3) & (Q>=q0-3)) |
-               ((Q<=q1+3) & (Q>=q1-3)) |
-               ((Q<=q2+3) & (Q>=q2-3))
-              )
-        Atemp = A[rng]
-        ur_profs[:, k*4+1:k*4+4]  = griddata(Atemp[:,[-1,3]], Atemp[:,-2]/Atemp[:,-3] - 1, 
-                                             (qspace[None,:], yspace_pro), method='linear')
-
-    # Calculate delta from edges
-    lower = A[ (A[:,3] >= rdlim[0]) & (A[:,3] <= rdlim[1]) & (n.abs(A[:,2]) <= 0.2), :]
-    upper = A[ (A[:,3] >= rdlim[2]) & (A[:,3] <= rdlim[3]) & (n.abs(A[:,2]) <= 0.2), :]
-    D[k,6] = n.mean(upper[:,6]) - n.mean(lower[:,6])
+            ur_profs[i, k*3+3] = R/Ro - 1
 
 #################
 ## End of Loop ##
@@ -504,14 +513,10 @@ D[0,:] = 0
 
 # Save data files!
 #########
-# Results.dat
-headerline = '[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L, Lg={:.6f}'.format(GL)
-n.savetxt('Results.dat', X=D, fmt='%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
-if analyze_urProfs:
-    # ur_profiles.dat
-    headerline = ('First column:  Undef y-coord\n' +
-                 'k+1 to k+4 column:  Stage K ur/Ro for vert profile at X={:.3f}, {:.3f}, {:.3f} inches and using BFcirc'.format(*xspace))
-    n.savetxt('ur_profiles.dat', X=ur_profs, fmt='%.6f', delimiter=',', header=headerline)
+if analyze_basic_results:
+    # Results.dat
+    headerline = '[0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L, Lg={:.6f}'.format(GL)
+    n.savetxt('Results.dat', X=D, fmt='%.0f, %.6f, %.6f, %.6f, %.6f, %.6f, %.6f',header=headerline)
 if analyze_localization:
     # loc_max.dat
     headerline='[0]NEx [1]NEy [2]Gamma [3]F11-1 [4]F22-1 [5]atan(F12/F22) [6]epeq [7]AramX [8]AramY'
@@ -528,6 +533,11 @@ if analyze_localization:
     # Save the Max10
     headerline = '[0]Epeq [1]AramXIndex [2]AramYIndex [3]UndefXCoord [4]UndefYCoord'
     n.savetxt('Max10.dat',X=MaxTen,fmt='%.6f, %.0f, %.0f, %.6f, %.6f',header=headerline)
+if analyze_urProfs:
+    # ur_profiles.dat
+    headerline = ('First column:  Undef y-coord\n' +
+                 'k+1 to k+3 column:  Stage K eps_theta, ur/Ro for vert profile thru max point, and using BFcirc')
+    n.savetxt('ur_profiles.dat', X=ur_profs, fmt='%.6f', delimiter=',', header=headerline)
 if analyze_LEpProfs:
     # Save the LEp_profiles
     headerline = ('Col [0]: Undeformed RQ or y coord.\n' +

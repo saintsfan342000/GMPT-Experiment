@@ -48,16 +48,16 @@ W,H = 18,10
 fvec = n.array([W,H,W,H])
 
 # ax1:  LEp Profile
-x,y,w,h = 1.5,1.1,10,4
+x,y,w,h = 1.5,1.2,10,4
 ax1_loc = n.array([x,y,w,h]/fvec)
 # ax2:  Ur Profile
-x,y,w,h = 12.75,2.5,3.5,6
+x,y,w,h = 12.75,2,3.5,6
 ax2_loc = n.array([x,y,w,h]/fvec)
 # ax3:  Hooop-sts / hoop-stn
-x,y,w,h = 7.25,6,4,3
+x,y,w,h = 7.25,6.1,4,3
 ax3_loc = n.array([x,y,w,h]/fvec)
 # ax4:  Ax-sts / hoop-sts
-x,y,w,h = 1.75,6,4,3
+x,y,w,h = 1.75,6.1,4,3
 ax4_loc = n.array([x,y,w,h]/fvec)
 # ax_sl:  Slider
 x,y,w,h = 4,.1,10,.25
@@ -75,15 +75,15 @@ LL1, = ax1.plot(LEp_prof[:,0]/thickness, LEp_prof[:,loc+1], lw=3, alpha=0.0,zord
 ax1.axis([-8,8,0,LEp_prof[:,1:].max()*1.05])
 ax1.set_xlabel('s/t$_\\mathsf{o}$')
 ax1.set_ylabel('e$_\\mathsf{e}$')
-f.myax(ax1,TW=.0025,HW=.22,HL=.07,OH=.3)
+f.myax(ax1, autoscale='preserve')
 
 # ax2:  Ur Profile
-line2, = ax2.plot(ur_prof[:,4*0+4]*100, ur_prof[:,0]*2/4, lw=3)
-LL2, = ax2.plot(ur_prof[:,4*loc+4]*100, ur_prof[:,0]*2/4, lw=3, alpha=0.0,zorder=-10)
+line2, = ax2.plot(ur_prof[:,3*0+2]*100, ur_prof[:,0]*2/4, lw=3)
+LL2, = ax2.plot(ur_prof[:,3*loc+2]*100, ur_prof[:,0]*2/4, lw=3, alpha=0.0,zorder=-10)
 ax2.axis(xmin=0, ymin=-1,ymax=1)
 ax2.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$ (%)')
 ax2.set_ylabel('$\\frac{\\mathsf{2y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
-f.myax(ax2, TW=.0045, HW=1, HL=0.035, nudge=('left',.3,-.5))
+f.myax(ax2, nudge=('left',.3,.5), autoscale='preserve')
 
 # ax3:  Hooop-sts / hoop-stn
 line3, = ax3.plot(D[0,2]*100, sigq[0], 'o',  ms=8)
@@ -93,7 +93,7 @@ if not expt in [1,4]:
     ax3.axis(xmin=0,ymin=0)
 ax3.set_xlabel('$\\bar{\\epsilon}_\\theta$ (%)')
 ax3.set_ylabel('$\\sigma_\\theta$\n($\\mathsf{ksi}$)')
-f.myax(ax3, TW=.0035, HW=.45, HL=0.07)
+f.myax(ax3, autoscale='preserve')
 
 # ax4:  Ax-sts / hoop-sts
 line4, = ax4.plot(D[0,1]*100, sigx[0], 'o', ms=8)
@@ -104,7 +104,7 @@ if not expt in [1,4]:
     ax4.axis(xmin=0,ymin=0, ymax=1.05*sigx.max())
 ax4.set_xlabel('$\\bar{\\epsilon}_\\mathsf{x}$ (%)')
 ax4.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
-f.myax(ax4, TW=.0035, HW=.45, HL=0.07)
+f.myax(ax4, autoscale='preserve')
 
 fig.text(.5, .98, titlestring, ha='center', va='top', transform=fig.transFigure)
 fig.text(.5, .95, 'P = {:.0f} psi'.format(P[0]*1000), ha='center', va='top', transform=fig.transFigure)
@@ -115,7 +115,7 @@ slider = Slider(ax=ax_sl, label='', valmin=0, valmax=stg[-1], valinit=0, valfmt=
 def update(val):
     i = int(val)
     line1.set_ydata(LEp_prof[:,i+1])
-    line2.set_xdata(ur_prof[:,4*i+4]*100)
+    line2.set_xdata(ur_prof[:,3*i+2]*100)
     line3.set_data(D[i,2]*100,sigq[i])
     line4.set_data(D[i,1]*100,sigx[i])
     tex = fig.texts[-1]

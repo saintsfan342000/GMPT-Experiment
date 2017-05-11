@@ -12,7 +12,7 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 7
+    expt = 4
     FS = 15
     SS = 5
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
@@ -94,12 +94,12 @@ f.myax(ax22, f.ksi2Mpa, '$\\sigma_{\\theta}$\n($\\mathsf{MPa}$)')
 ##################################################
 p.style.use('mysty')
 fig3 = p.figure()
-p.plot(D[:,2]*1000,D[:,1]*1000)
+p.plot(D[:,2]*100,D[:,1]*100)
 ax3 = p.gca()
 for k,i in enumerate(profStg):
-    ax3.plot(D[i,2]*1000, D[i,1]*1000, 'o', color=colors[k], ms=8)
-ax3.set_xlabel('$\\epsilon_\\theta$ ($\\mathsf{x10}^\\mathsf{3}$)')
-ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n($\\mathsf{x10}^\\mathsf{3}$)')
+    ax3.plot(D[i,2]*100, D[i,1]*100, 'o', color=colors[k], ms=8)
+ax3.set_xlabel('$\\epsilon_\\theta$ (%)')
+ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
 ax3.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
 f.myax(ax3)
 
@@ -112,13 +112,18 @@ p.rcParams['axes.labelsize'] = 22
 fig4 = p.figure()
 ax4 = fig4.add_subplot(111)
 for k,i in enumerate(profStg):
-    ax4.plot(ur_prof[:,4*i+1:4*i+4], ur_prof[:,0]*2/4, alpha=0.35, color=colors[k])
+    l1, = ax4.plot(ur_prof[:,3*i+3], ur_prof[:,0]*2/4, alpha=0.5, color=colors[k], lw=3)
     #ax4.plot(ur_prof[:,4*i+3], ur_prof[:,0]*2/4, alpha=0.35, color=colors[k])
-    ax4.plot(ur_prof[:,4*i+4], ur_prof[:,0]*2/4, color=colors[k])
+    l2, = ax4.plot(ur_prof[:,3*i+2], ur_prof[:,0]*2/4, color=colors[k], lw=3)
+leg4 = ax4.legend([l2,l1],
+        ['u$_\\mathsf{r}$/R$_\\mathsf{o}$', 'BF Circ.'],
+        loc='upper right'
+        )
+p.setp(leg4.get_lines(), color=colors[0], lw=3)
 ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$')
 ax4.set_ylabel('$\\frac{\\mathsf{2y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
 ax4.set_title('Radial Displacement Profiles\n{}'.format(titlestring), fontsize=14)
-f.myax(ax4, HW=1, HL=0.035)
+f.myax(ax4,autoscale='preserve')
 
 ##################################################
 # Figure 5 - LEp Profile thru max point
@@ -130,10 +135,11 @@ fig5 = p.figure(figsize=(12,6))
 ax5 = fig5.add_axes([.12,.12,.8,.78])
 for k,i in enumerate(profStg):
     ax5.plot(LEp_prof[:,0]/thickness, LEp_prof[:,i+1], color=colors[k])
+ax5.axis(xmin=-8,xmax=8)
 ax5.set_xlabel('s/t$_\\mathsf{o}$')
 ax5.set_ylabel('e$_\\mathsf{e}$')
 ax5.set_title(titlestring)
-f.myax(ax5,TW=.0025,HW=.3,HL=.05,OH=.2)
+f.myax(ax5)
 
 ##################################################
 # Figure 0 - Binder Figs
