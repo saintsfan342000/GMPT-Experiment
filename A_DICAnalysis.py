@@ -11,7 +11,7 @@ from pandas import read_excel, read_csv
 from mysqrtm import mysqrtm
 from CircleFitByPratt import CircleFitByPratt as CF
 from CircleFitByPratt import PrattPlotter
-import os, glob, shutil
+import os, glob, shutil, sys
 
 '''
 Analysis code for GMPT experiments
@@ -32,21 +32,23 @@ Things to calculate
 - Analysis of Localization
 
 '''
-proj = 'GMPT-4_FS30SS10'
+try:
+    proj = sys.argv[1]
+except:
+    proj = 'GMPT-8_FS15SS5'
+    
 BIN = True
 makecontours = True
 saveAram = True                      # Whether to save the missing removed array to a .npy binary.  Only does so if BIN = False
 
-analyze_basic_results = False # Whether to overwrite basic results
-analyze_localization = False # Whether to scan localization for max point
-analyze_LEpProfs = False # Whether to make LEpProf thru max point
-analyze_urProfs = True   # Whether to make urProf thru max point and using BF circ
+analyze_basic_results = 0 # Whether to overwrite basic results
+analyze_whole_field = 0 # Whether to take avg epsX and epsQ over whole surface
+analyze_localization = 0 # Whether to scan localization for max point
+analyze_LEpProfs = 0 # Whether to make LEpProf thru max point
+analyze_urProfs = 0   # Whether to make urProf thru max point and using BF circ
 
-print(" Have you added this experiment to the summary yet?")
-print(" Have you added this experiment to the summary yet?")
-print(" Have you added this experiment to the summary yet?")
-print(" Have you added this experiment to the summary yet?")
-print(" Have you added this experiment to the summary yet?")
+print(" Have you added this experiment to the summary yet?\n"*4)
+print(" And are the headerlines of 'ST.dat' commented out?\n"*4)
 
 expt = int( proj.split('_')[0].split('-')[1])
 FS = int( proj.split('_')[1].split('SS')[0].split('S')[1] )
@@ -255,6 +257,7 @@ if True:
     export_mean=n.zeros( (last+1,8) )  #MeanPt data
     export_stdv=n.zeros( (last+1,8) )  #Std Deviation data
     export_MaxPt=n.zeros( (last+1,7) ) #The last stage's max point traced thru all stages
+    whole_field = n.zeros( (last+1 ,9) )
 
 ######################
 # Iterate Thru Stage #
@@ -340,6 +343,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
         ratioSDEV = nanstd(ratio)
         passed = (ratio >= ratioAvg - 1 * ratioSDEV) & (ratio <= ratioAvg + 1 * ratioSDEV)
         '''
+        # Need to add something, though, that doesn't accept a point if it doesn't have all its neighbors
         passed = n.ones_like(LEp1, dtype=bool)
         LEp1=LEp1[passed]
         NEx1=NEx1[passed]
@@ -389,7 +393,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     #### LEp profiles ####
     ######################
     if analyze_LEpProfs:
-        if k==last and (analyze_localization is False):
+        if k==last and (analyze_localization == False):
             # Then we need the max point aramX and aramY from Max10.dat since we won't get it from loc analysis
             aramXmaxlast, aramYmaxlast = n.genfromtxt('Max10.dat', delimiter=',')[0,[1,2]]
         rowmax = n.nonzero( (A[:,0]==aramXmaxlast) & (A[:,1]==aramYmaxlast) )[0]
@@ -476,7 +480,7 @@ for itcount, k in enumerate(range(last,-1,-1)):
     #### Ur/R profiles ###
     ######################
     if analyze_urProfs:
-        if k==last and (analyze_localization is False):
+        if k==last and (analyze_localization == False):
             # Then we need the max point aramX and aramY from Max10.dat since we won't get it from loc analysis
             aramXmaxlast, aramYmaxlast = n.genfromtxt('Max10.dat', delimiter=',')[0,[1,2]]
         
@@ -498,7 +502,26 @@ for itcount, k in enumerate(range(last,-1,-1)):
             Ro = CF(xzinterp[i,:,[0,1]].T)[-1]  # Have to transpose it b/c the slice makes it 2 x n, want nx2
             R = CF(xzinterp[i,:,[2,3]].T)[-1]
             ur_profs[i, k*3+3] = R/Ro - 1
-
+            
+    ######################
+    ##### whole_field ####
+    ######################
+    if analyze_whole_field:
+        whole_field[k,0] = k
+        qrng = (Q>=q_mid-45) & (Q<=q_mid+45)
+        rng = qrng & (n.abs(A[:,3])<=0.5)
+        whole_field[k,1] = n.nanmean(NEx[rng])
+        whole_field[k,2] = n.nanmean(NEq[rng])
+        rng = qrng & (n.abs(A[:,3])<=1.0)
+        whole_field[k,3] = n.nanmean(NEx[rng])
+        whole_field[k,4] = n.nanmean(NEq[rng])
+        rng = qrng & (n.abs(A[:,3])<=1.5)
+        whole_field[k,5] = n.nanmean(NEx[rng])
+        whole_field[k,6] = n.nanmean(NEq[rng])
+        rng = qrng & (n.abs(A[:,3])<=1.9)
+        whole_field[k,7] = n.nanmean(NEx[rng])
+        whole_field[k,8] = n.nanmean(NEq[rng])
+        
 #################
 ## End of Loop ##
 #################
@@ -543,5 +566,11 @@ if analyze_LEpProfs:
     headerline = ('Col [0]: Undeformed RQ or y coord.\n' +
                   'Col [k+1]: Stage k LEp along profile')
     n.savetxt('LEp_profiles.dat', X=LEp_prof, fmt='%.6f', delimiter=',', header=headerline)
+if analyze_whole_field:
+    # Save whole_field
+    headerline = ('[0]Stage, [1,2]Epsx,q, +/-.5", [3,4]1", [5,6]1.5", [7,8] 1.9"' + 
+                  'Central 90 deg of points')
+    whole_field[0] = 0
+    n.savetxt('WholeFieldAverage.dat', X=whole_field, fmt='%.0f'+' , %.6f'*8, header=headerline)
 
 os.system('python ../AA_PyScripts/B_Plots.py {} {} {} {}'.format(int(expt), int(FS), int(SS), savepath))

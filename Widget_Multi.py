@@ -9,7 +9,7 @@ import glob
 import os
 
 expt = 7
-size_factor = .8
+size_factor = 1
 FS = 15
 SS = 5
 path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
@@ -80,6 +80,7 @@ f.myax(ax1, autoscale='preserve')
 # ax2:  Ur Profile
 line2, = ax2.plot(ur_prof[:,3*0+2]*100, ur_prof[:,0]*2/4, lw=3)
 LL2, = ax2.plot(ur_prof[:,3*loc+2]*100, ur_prof[:,0]*2/4, lw=3, alpha=0.0,zorder=-10)
+worthless, = ax2.plot(ur_prof[:,-2]*100, ur_prof[:,0]*2/4, alpha=0)
 ax2.axis(xmin=0, ymin=-1,ymax=1)
 ax2.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$ (%)')
 ax2.set_ylabel('$\\frac{\\mathsf{2y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')

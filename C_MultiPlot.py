@@ -22,7 +22,7 @@ try:
     else:
         raise
 except:
-    expts = n.array([2,3,4,7])
+    expts = n.array([2,3,4,7,8])
     alpha = ...
 
 FS, SS = 15,5
@@ -31,6 +31,11 @@ savepath = '..'
 
 # [0]Expt No., [1]Mon.Day, [2]Material, [3]Tube No., [4]Alpha, [5]Alpha-True    , [6]Mean Radius, [7]Thickness, [8]Eccentricity
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
+# Sort by alpha
+key = key[ n.in1d(key[:,0],expts) ]
+key = n.flipud(key[ key[:,5].argsort() ])
+expts = key[:,0].astype(int)
+
 
 # Initialize profstg array:
 # Row for each experiment
@@ -101,21 +106,27 @@ for k,X in enumerate(expts):
     ax21.plot(D[:,1]*100, sigx, label=masterlabel)
     if X == expts[-1]:
         p.style.use('mysty-12')
-        ax21.plot(limload[:,2]*100,limload[:,0],'r^')
+        ll21, = ax21.plot(limload[:,2]*100,limload[:,0],'r^')
         ax21.axis(xmin=-.1)
         ax21.set_xlabel('$\\epsilon_\\mathsf{x}$ (%)')
         ax21.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
-        f.ezlegend(ax21, loc='lower right')
+        leg2 = ax21.legend([ll21],['LL'],loc='upper left', handletextpad=0.1)
+        leg = f.ezlegend(ax21, loc='lower right')
+        ax21.add_artist(leg2)
+        p.setp(leg2.get_texts(), color='r')
         f.myax(ax21, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
 
     ax22.plot(D[:,2]*100, sigq, label=masterlabel)
     if X == expts[-1]:
         p.style.use('mysty-12')
-        ax22.plot(limload[:,3]*100,limload[:,1],'r^')
+        ll22, = ax22.plot(limload[:,3]*100,limload[:,1],'r^')
         ax22.set_xlabel('$\\epsilon_\\theta$ (%)')
         ax22.set_ylabel('$\\sigma_\\theta$\n($\\mathsf{ksi}$)')
         ax22.axis(xmin=0)
+        leg2 = ax22.legend([ll22],['LL'],loc='upper left', handletextpad=0.1)
         leg = f.ezlegend(ax22, loc='lower right')
+        ax22.add_artist(leg2)
+        p.setp(leg2.get_texts(), color='r')
         f.myax(ax22, f.ksi2Mpa, '$\\sigma_{\\theta}$\n($\\mathsf{MPa}$)')
 
 
@@ -131,19 +142,22 @@ for k,X in enumerate(expts):
     ax3.plot(D[:,2]*100, D[:,1]*100, label=masterlabel)
     if X == expts[-1]:
         p.style.use('mysty')
-        ax3.plot(limload[:,3]*100, limload[:,2]*100, 'rs')
+        ll3, = ax3.plot(limload[:,3]*100, limload[:,2]*100, 'r^')
         ax3.axis(xmin=0,ymin=0)
         ax3.set_xlabel('$\\epsilon_\\theta$ (%)')
         ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
-        f.ezlegend(ax3, loc='upper left')
+        leg2 = ax3.legend([ll3],['LL'],loc='upper left', handletextpad=0.1)
+        leg = f.ezlegend(ax3, loc='lower right')
+        ax3.add_artist(leg2)
+        p.setp(leg2.get_texts(), color='r')
         f.myax(ax3)
 
         
 if not savefigs:
     p.show('all')        
 else:
-    fig1.savefig('{}/1_StsSts.png'.format(savepath),dpi=125)
-    #fig1.savefig('{}/1_StsSts.pdf'.format(savepath),dpi=125)
+    fig1.savefig('{}/1_StsSts.png'.format(savepath),dpi=125,bbox_inches='tight')
+    #fig1.savefig('{}/1_StsSts.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     fig2.savefig('{}/2_StsStn.png'.format(savepath),dpi=125,bbox_inches='tight')
     #fig2.savefig('{}/2_StsStn.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     fig3.savefig('{}/3_StnStn.png'.format(savepath),dpi=125,bbox_inches='tight')

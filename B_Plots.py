@@ -12,13 +12,14 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 4
+    expt = 3
     FS = 15
     SS = 5
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
     savefigs = True
 
 
+    
 try:
    os.chdir(path)
 except FileNotFoundError:
@@ -35,8 +36,8 @@ if n.isnan(alpha):
 # [0] Stage, [1,2,3]eps_x,q,xq(point avg), [4]eps_x(1"ext), [5]eps_q(BFcirc@mid), [6]d/L, Lg=4.330875
 # STPF.dat
 # [0]Stage, [1]Time, [2]Force(kip), [3]Pressure(ksi), [4]NomAxSts(ksi), [5]NomHoopSts(ksi), [6]LVDT(volt), [7]MTSDisp(in)
-
 D = n.genfromtxt('Results.dat', delimiter=',')
+E = n.genfromtxt('WholeFieldAverage.dat', delimiter=',')
 stg, time, F, P, sigx, sigq, LVDT, Disp = n.genfromtxt('STPF.dat', delimiter=',').T
 ur_prof = read_csv('./ur_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
 LEp_prof = read_csv('./LEp_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
@@ -98,10 +99,31 @@ p.plot(D[:,2]*100,D[:,1]*100)
 ax3 = p.gca()
 for k,i in enumerate(profStg):
     ax3.plot(D[i,2]*100, D[i,1]*100, 'o', color=colors[k], ms=8)
-ax3.set_xlabel('$\\epsilon_\\theta$ (%)')
-ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
+ax3.set_xlabel('$\\overline{\\epsilon_\\theta}$ (%)')
+ax3.set_ylabel('$\\overline{\\epsilon_\\mathsf{x}}$\n(%)')
 ax3.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
+ax3.axvline(0,color='k')
+ax3.axhline(0,color='k')
 f.myax(ax3)
+
+##################################################
+# Figure 3b - Ax Stn vs Hoop Stn, whole field data
+##################################################
+p.style.use('mysty')
+C = [i['color'] for i in list(p.rcParams['axes.prop_cycle'])]
+fig3b = p.figure()
+ax3b = fig3b.add_subplot(111)
+# Loop thru for .5", 1", 1.5", 1.9"
+for z,j in enumerate([0.5, 1, 1.5, 1.9]):
+    ax3b.plot(E[:,2*z+2]*100,E[:,2*z+1]*100, label='{}"'.format(j), color=C[z+5])
+    for k,i in enumerate(profStg):
+        ax3b.plot(E[i,2*z+2]*100, E[i,2*z+1]*100, 'o', color=colors[k], ms=4,mec='k')
+ax3b.axis(xmin=0,ymin=0)
+ax3b.set_xlabel('$\\epsilon_\\theta$ (%)')
+ax3b.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
+f.ezlegend(ax3b, title='$\\overline{{\\mathsf{{L}}}}$ (+/-)')
+ax3b.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
+f.myax(ax3b)
 
 ##################################################
 # Figure 4 - Profiles
@@ -184,6 +206,7 @@ if savefigs:
     fig5.savefig('5 - LEp_profile.png',dpi=125)
     fig4.savefig('4 - Ur_profile.png',dpi=125)
     fig3.savefig('3 - Stn-Stn.png',dpi=125)
+    fig3b.savefig('3b - Stn-Stn.png',dpi=125)
     fig2.savefig('2 - Sts-Stn.png',dpi=125)
     fig1.savefig('1 - Sts-Sts.png',dpi=125)
     fig0.savefig('BinderFig.pdf',bbox_inches='tight')
@@ -191,3 +214,4 @@ if savefigs:
 else:
     p.show('all')
 
+os.chdir('../AA_PyScripts')
