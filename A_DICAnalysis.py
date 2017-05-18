@@ -88,7 +88,9 @@ if not os.path.exists('STPF.dat'):
     last = int(ST[-1,0])
     ## Read csv, flexible enough for spaces and tabs
     #[0]Pressure(psi)	[1]LVDT(V)  [2]Force(lbf)   [3]Disp.(in)    [4]FunctionGen Voltage [5]Time(s)
-    LV = read_csv('./zMisc/GMPT-{:.0f}_LV.dat'.format(expt),header=None,skiprows=1,comment='#',index_col=None,skipinitialspace=True,sep='\s*',engine='python').values
+    LV = read_csv('./zMisc/GMPT-{:.0f}_LV.dat'.format(expt),
+                  header=None, skiprows=1, comment='#', index_col=None,
+                  skipinitialspace=True, sep='\s*', engine='python').values
     STPF = n.empty( (len(ST[:,0]),8) )
     # STPF will be:
     # [0]Stage, [1]Time, [2]Force(kip), [3]Pressure(ksi), [4]NomAxSts(ksi), [5]NomHoopSts(ksi), [6]LVDT(volt), [7]MTSDisp(in)
@@ -182,7 +184,7 @@ else:
 
 # Localization direction, determined by alpha
 # This is the orientation of the localization zone that develops
-if alpha >= 1.0:
+if alpha > 1.0:
     locdir = 'Hoop'
 else:
     locdir = 'Axial'
