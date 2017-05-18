@@ -2,7 +2,6 @@ import numpy as n
 import os
 from sys import argv
 from pandas import read_excel
-from scipy.signal import detrend
 import figfun as f
 import os
 import matplotlib.pyplot as p
@@ -136,8 +135,8 @@ for k,X in enumerate(expts):
     if k == 0:
         p.style.use('mysty')
         #p.rcParams['axes.prop_cycle'] = cycler('color',colors)
-        fig3 =  p.figure()
-        ax3 = fig3.add_subplot(111)
+        fig3 =  p.figure(figsize=(7,7))
+        ax3 = fig3.add_axes([1.5/7,1.5/7,4/7,4/7])
     
     ax3.plot(D[:,2]*100, D[:,1]*100, label=masterlabel)
     if X == expts[-1]:
@@ -147,7 +146,7 @@ for k,X in enumerate(expts):
         ax3.set_xlabel('$\\epsilon_\\theta$ (%)')
         ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
         leg2 = ax3.legend([ll3],['LL'],loc='upper left', handletextpad=0.1)
-        leg = f.ezlegend(ax3, loc='lower right')
+        leg = f.ezlegend(ax3, loc='center right')
         ax3.add_artist(leg2)
         p.setp(leg2.get_texts(), color='r')
         f.myax(ax3)

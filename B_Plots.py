@@ -12,11 +12,11 @@ try:
     SS = int(SS)
     savefigs = True
 except ValueError:
-    expt = 3
-    FS = 15
-    SS = 5
+    expt = 7
+    FS = 30
+    SS = 10
     path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
-    savefigs = True
+    savefigs = False
 
 
     
@@ -37,11 +37,15 @@ if n.isnan(alpha):
 # STPF.dat
 # [0]Stage, [1]Time, [2]Force(kip), [3]Pressure(ksi), [4]NomAxSts(ksi), [5]NomHoopSts(ksi), [6]LVDT(volt), [7]MTSDisp(in)
 D = n.genfromtxt('Results.dat', delimiter=',')
+D[:,1:]*=100
 E = n.genfromtxt('WholeFieldAverage.dat', delimiter=',')
+E[:,1:]*=100
 stg, time, F, P, sigx, sigq, LVDT, Disp = n.genfromtxt('STPF.dat', delimiter=',').T
 ur_prof = read_csv('./ur_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
+ur_prof[:,1:]*=100
 LEp_prof = read_csv('./LEp_profiles.dat', sep=',', comment='#', header=None, index_col=None).values
 profStg = n.genfromtxt('./zMisc/prof_stages.dat', delimiter=',', dtype=int)
+
 
 titlestring = 'GMPT-{:.0f}, $\\alpha$ = {}.  FS{:.0f}SS{:.0f}. Tube {:.0f}-{:.0f}'.format(expt,alpha,FS,SS,material,tube)
 
@@ -69,12 +73,12 @@ f.myax(ax1, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
 ##################################################
 p.style.use('mysty-12')
 fig2, ax21, ax22 = f.make12()
-ax21.plot(D[:,4]*1000, sigx, label='1" L$_g$')
-ax21.plot(D[:,1]*1000, sigx, label='Point Avg.')
+ax21.plot(D[:,4], sigx, label='1" L$_g$')
+ax21.plot(D[:,1], sigx, label='Point Avg.')
 for k,i in enumerate(profStg):
-    ax21.plot(D[i,1]*1000, sigx[i], 'o', color=colors[k])
+    ax21.plot(D[i,1], sigx[i], 'o', color=colors[k])
 ax21.axis(ymax=1.05*sigx.max())    
-ax21.set_xlabel('$\\epsilon_\\mathsf{x}$($\\mathsf{x10}^\\mathsf{3})$')
+ax21.set_xlabel('$\\epsilon_\\mathsf{x}$ (%)')
 ax21.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
 ax21.set_title(titlestring, fontsize=14)
 leg = f.ezlegend(ax21, loc='lower right')
@@ -84,7 +88,8 @@ ax22.plot(D[:,5], sigq, label='Circ. Fit')
 ax22.plot(D[:,2], sigq, label='Point Avg.')
 for k,i in enumerate(profStg):
     ax22.plot(D[i,2], sigq[i], 'o', color=colors[k])
-ax22.set_xlabel('$\\epsilon_\\theta$')
+ax22.axis(xmin=0,ymin=0)
+ax22.set_xlabel('$\\epsilon_\\theta$ (%)')
 ax22.set_ylabel('$\\sigma_\\theta$\n($\\mathsf{ksi}$)')
 ax22.set_title(titlestring, fontsize=14)
 leg = f.ezlegend(ax22, loc='lower right')
@@ -95,15 +100,14 @@ f.myax(ax22, f.ksi2Mpa, '$\\sigma_{\\theta}$\n($\\mathsf{MPa}$)')
 ##################################################
 p.style.use('mysty')
 fig3 = p.figure()
-p.plot(D[:,2]*100,D[:,1]*100)
+p.plot(D[:,2],D[:,1])
 ax3 = p.gca()
 for k,i in enumerate(profStg):
-    ax3.plot(D[i,2]*100, D[i,1]*100, 'o', color=colors[k], ms=8)
+    ax3.plot(D[i,2], D[i,1], 'o', color=colors[k], ms=8)
 ax3.set_xlabel('$\\overline{\\epsilon_\\theta}$ (%)')
 ax3.set_ylabel('$\\overline{\\epsilon_\\mathsf{x}}$\n(%)')
 ax3.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
-ax3.axvline(0,color='k')
-ax3.axhline(0,color='k')
+ax3.axis(xmin=0, ymin=0)
 f.myax(ax3)
 
 ##################################################
@@ -115,9 +119,9 @@ fig3b = p.figure()
 ax3b = fig3b.add_subplot(111)
 # Loop thru for .5", 1", 1.5", 1.9"
 for z,j in enumerate([0.5, 1, 1.5, 1.9]):
-    ax3b.plot(E[:,2*z+2]*100,E[:,2*z+1]*100, label='{}"'.format(j), color=C[z+5])
+    ax3b.plot(E[:,2*z+2],E[:,2*z+1], label='{}"'.format(j), color=C[z+5])
     for k,i in enumerate(profStg):
-        ax3b.plot(E[i,2*z+2]*100, E[i,2*z+1]*100, 'o', color=colors[k], ms=4,mec='k')
+        ax3b.plot(E[i,2*z+2], E[i,2*z+1], 'o', color=colors[k], ms=4,mec='k')
 ax3b.axis(xmin=0,ymin=0)
 ax3b.set_xlabel('$\\epsilon_\\theta$ (%)')
 ax3b.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
@@ -126,7 +130,7 @@ ax3b.set_title('Nominal strain response\n{}'.format(titlestring), fontsize=14)
 f.myax(ax3b)
 
 ##################################################
-# Figure 4 - Profiles
+# Figure 4 - uR Profiles
 ##################################################
 p.style.use('mysty-sub')
 p.rcParams['font.size'] = 18
@@ -142,7 +146,7 @@ leg4 = ax4.legend([l2,l1],
         loc='upper right'
         )
 p.setp(leg4.get_lines(), color=colors[0], lw=3)
-ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$')
+ax4.set_xlabel('u$_\\mathsf{r}$/R$_\\mathsf{o}$ (%)')
 ax4.set_ylabel('$\\frac{\\mathsf{2y}_\\mathsf{o}}{\\mathsf{L}_\\mathsf{g}}$')
 ax4.set_title('Radial Displacement Profiles\n{}'.format(titlestring), fontsize=14)
 f.myax(ax4,autoscale='preserve')
