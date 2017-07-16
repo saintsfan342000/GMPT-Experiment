@@ -8,8 +8,8 @@ p.style.use('mysty')
 import glob
 import os
 
-expt = 7
-size_factor = 1
+expt = 2
+size_factor = .8
 FS = 15
 SS = 5
 path = '../GMPT-{}_FS{}SS{}'.format(expt,FS,SS)
@@ -72,7 +72,7 @@ for i in [1,2,3,4,'_sl']:
 # ax1:  LEp Profile
 line1, = ax1.plot(LEp_prof[:,0]/thickness, LEp_prof[:,0+1], lw=3)
 LL1, = ax1.plot(LEp_prof[:,0]/thickness, LEp_prof[:,loc+1], lw=3, alpha=0.0,zorder=-10)
-ax1.axis([-8,8,0,LEp_prof[:,1:].max()*1.05])
+ax1.axis([-8,8,0,n.nanmax(LEp_prof[:,1:])*1.05])
 ax1.set_xlabel('s/t$_\\mathsf{o}$')
 ax1.set_ylabel('e$_\\mathsf{e}$')
 f.myax(ax1, autoscale='preserve')

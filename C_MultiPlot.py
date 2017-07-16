@@ -21,7 +21,7 @@ try:
     else:
         raise
 except:
-    expts = n.array([2,3,4,7,8])
+    expts = n.array([2,3,4,7,8,10,11])
     alpha = ...
 
 FS, SS = 15,5
@@ -142,7 +142,7 @@ for k,X in enumerate(expts):
     if X == expts[-1]:
         p.style.use('mysty')
         ll3, = ax3.plot(limload[:,3]*100, limload[:,2]*100, 'r^')
-        ax3.axis(xmin=0,ymin=0)
+        ax3.axis(xmin=0)
         ax3.set_xlabel('$\\epsilon_\\theta$ (%)')
         ax3.set_ylabel('$\\epsilon_\\mathsf{x}$\n(%)')
         leg2 = ax3.legend([ll3],['LL'],loc='upper left', handletextpad=0.1)
