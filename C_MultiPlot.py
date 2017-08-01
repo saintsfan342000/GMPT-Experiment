@@ -1,4 +1,6 @@
 import numpy as n
+from numpy.linalg import eigvalsh
+from numpy import pi
 import os
 from sys import argv
 from pandas import read_excel
@@ -156,17 +158,41 @@ for k,X in enumerate(expts):
     # Figure 4 - Failure Stn vs Triax
     ##################################################
     if k == 0:
-        p.style.use('mysty')
-        fig4 = p.figure()
-        ax4 = fig4.add_subplot(111)
+        p.style.use('mysty-sub')
+        fig4, ax4, ax421 = f.make21()
+        ax422 = ax421.twiny()
+
     
-    sm = (sigx + sigq)[last]/3
-    se = (n.sqrt( ((sigx-sigq)**2 + (sigx**2) + (sigq**2))/2 ))[last]
+    SIG = n.array([[0,0,0],[0,sigq[last],0],[0,0,sigx[last]]])
+    sigm = SIG.trace()/3
+    S = SIG - SIG.trace()*n.eye(3)/3
+    sig3,sig2,sig1 = n.sort(eigvalsh(SIG))
+    s3,s2,s1 = n.sort(eigvalsh(S))
+    J2 = ( (sig1-sig2)**2 + (sig2-sig3)**2 + (sig3-sig1)**2 )/6
+    J3 = s1*s2*s3
+    if not n.isclose(J3, (s1**3+s2**3+s3**3)/3):
+        raise ValueError("J3 isn't correct")
+    sigeq = n.sqrt(3*J2)
+    if not n.isclose(sigeq, (n.sqrt( ((sigx-sigq)**2 + (sigx**2) + (sigq**2))/2 ))[last]):
+        raise ValueError("Equivalent stress isn't correct")
+    # Barsoum=Faleskog lode parameter
+    mu = (2*sig2-sig1-sig3)/(sig1-sig3)
+    c3q = 27*J3/(2*sigeq**3)
+    # Lode Ange
+    Q = n.arccos(c3q)/3
+    if not n.isclose(mu, n.sqrt(3)*n.tan(Q-pi/6)):
+        raise ValueError("Lode Params are not correct")
     
-    triax = sm/se
-    ax4.plot(triax, maxpt[last,-1], 's', color=mastercolor)
+    triax = sigm/sigeq
+    eef = maxpt[last,-1]
+    
+    ax4.plot(triax, eef, 's', color=mastercolor)
     ax4.plot([],[],color=mastercolor, label=masterlabel)
     #ax4.text(triax,.35,'{}'.format(a_true),color=mastercolor,ha='center',va='top',size=10)
+
+    ax421.plot(mu,eef, 's', color=mastercolor)
+    ax421.plot([],[],color=mastercolor,label=masterlabel)
+    #ax422.plot(Q,eef,'o', color=mastercolor)
 
     if X == expts[-1]:
         p.style.use('mysty')
@@ -174,9 +200,19 @@ for k,X in enumerate(expts):
         ax4.set_xlabel('$\\sigma_{\\mathsf{m}}/\\sigma_{\\mathsf{e}}$')
         ax4.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
         leg = f.ezlegend(ax4, title='$\\alpha\\prime$ || Exp.')
-        f.myax(ax4)        
+        f.myax(ax4)
 
-        
+        ax421.set_xlabel('B-F Lode Param $\\mu$')
+        ax421.set_xlim([-1,1.05])
+        ax421.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
+        ax422.set_xticks(n.arange(0,5*pi/12,pi/12))
+        ax422.set_xticklabels(['0',r'$\pi$/12',r'$\pi$/6',r'$\pi$/4',r'$\pi$/3'])
+        ax422.set_xlim([0,1.05*pi/3])
+        ax422.set_xlabel('Lode Angle $\\theta$')
+        ax422.patch.set_alpha(0)
+        f.ezlegend(ax421, title='$\\alpha\\prime$ || Exp.')
+        f.myax(ax421)
+
 if not savefigs:
     p.show('all')        
 else:
@@ -186,6 +222,6 @@ else:
     #fig2.savefig('{}/2_StsStn.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     fig3.savefig('{}/3_StnStn.png'.format(savepath),dpi=125,bbox_inches='tight')
     #fig3.savefig('{}/3_StnStn.pdf'.format(savepath),dpi=125,bbox_inches='tight')
-    fig4.savefig('{}/4_Triax.png'.format(savepath),dpi=125,bbox_inches='tight')
-    #fig4.savefig('{}/4_Triax.pdf'.format(savepath),dpi=125,bbox_inches='tight')
+    fig4.savefig('{}/4_TriaxLode.png'.format(savepath),dpi=125,bbox_inches='tight')
+    #fig4.savefig('{}/4_TriaxLode.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     p.close('all')
