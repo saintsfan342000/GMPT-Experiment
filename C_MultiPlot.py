@@ -25,7 +25,7 @@ except:
     alpha = ...
 
 FS, SS = 15,5
-savefigs = 1 
+savefigs = 1
 savepath = '..'
 
 # [0]Expt No., [1]Mon.Day, [2]Material, [3]Tube No., [4]Alpha, [5]Alpha-True    , [6]Mean Radius, [7]Thickness, [8]Eccentricity
@@ -64,6 +64,7 @@ for k,X in enumerate(expts):
     ur_prof = n.genfromtxt('{}/ur_profiles.dat'.format(relpath), delimiter=',')
     LEp_prof = n.genfromtxt('{}/LEp_profiles.dat'.format(relpath), delimiter=',')
     s1, s2, LL, last = n.genfromtxt('{}/zMisc/prof_stages.dat'.format(relpath), delimiter=',', dtype=int)
+    maxpt = n.genfromtxt('{}/MaxPt.dat'.format(relpath), delimiter=',')
       
     limload[k] = sigx[LL], sigq[LL], D[LL,1], D[LL,2]
     lastpic[k] = sigx[last], sigq[last], D[last,1], D[last,2]
@@ -150,6 +151,30 @@ for k,X in enumerate(expts):
         ax3.add_artist(leg2)
         p.setp(leg2.get_texts(), color='r')
         f.myax(ax3)
+        
+    ##################################################
+    # Figure 4 - Failure Stn vs Triax
+    ##################################################
+    if k == 0:
+        p.style.use('mysty')
+        fig4 = p.figure()
+        ax4 = fig4.add_subplot(111)
+    
+    sm = (sigx + sigq)[last]/3
+    se = (n.sqrt( ((sigx-sigq)**2 + (sigx**2) + (sigq**2))/2 ))[last]
+    
+    triax = sm/se
+    ax4.plot(triax, maxpt[last,-1], 's', color=mastercolor)
+    ax4.plot([],[],color=mastercolor, label=masterlabel)
+    #ax4.text(triax,.35,'{}'.format(a_true),color=mastercolor,ha='center',va='top',size=10)
+
+    if X == expts[-1]:
+        p.style.use('mysty')
+        #ax4.axis(ymin=0, ymax=0.4,xmax=2.1)
+        ax4.set_xlabel('$\\sigma_{\\mathsf{m}}/\\sigma_{\\mathsf{e}}$')
+        ax4.set_ylabel('$\\mathsf{e}^{\\mathsf{p}}_{\\mathsf{e}}$')
+        leg = f.ezlegend(ax4, title='$\\alpha\\prime$ || Exp.')
+        f.myax(ax4)        
 
         
 if not savefigs:
@@ -161,4 +186,6 @@ else:
     #fig2.savefig('{}/2_StsStn.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     fig3.savefig('{}/3_StnStn.png'.format(savepath),dpi=125,bbox_inches='tight')
     #fig3.savefig('{}/3_StnStn.pdf'.format(savepath),dpi=125,bbox_inches='tight')
+    fig4.savefig('{}/4_Triax.png'.format(savepath),dpi=125,bbox_inches='tight')
+    #fig4.savefig('{}/4_Triax.pdf'.format(savepath),dpi=125,bbox_inches='tight')
     p.close('all')
