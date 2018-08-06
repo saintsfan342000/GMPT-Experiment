@@ -15,7 +15,8 @@ Also a LL sheet
 Also has a "Table" sheet that is layed out like Table 1 in Korkolis JAM 2010
 '''
 plot = True
-expts = n.array([2,3,4,7,8,10,11])
+Wp_trunc = 1.2
+expts = n.array([2,3,4,7,8,10,11,12])
 FSSS = 'FS30SS10'
 # [0]Expt No., [1]Mon.Day, [2]Material, [3]Tube No., [4]Alpha, [5]Alpha-True    , [6]Mean Radius, [7]Thickness, [8]Eccentricity
 key = n.genfromtxt('../ExptSummary.dat', delimiter=',')
@@ -26,7 +27,11 @@ expts = key[:,0].astype(int)
 alpha = key[:,4]
 Rm, th, ecc = key[:,6:].T
 
-fid = pd.ExcelWriter('../GMPT_SetData.xlsx')
+if Wp_trunc:
+    fname = '../GMPT_SetData_Wp{}.xlsx'.format(Wp_trunc)
+else:
+    fname = '../GMPT_SetData.xlsx'
+fid = pd.ExcelWriter(fname)
 exporthead = 'Stage, Force, Pres(ksi), SigX, SigQ, EpsX(%), EpsQ(%)'
 exporthead = exporthead.split(',')
 table_head = ('Expt, alpha, Rm, t, Ecc(%), SigX_LL, SigTH_LL, epsX_LL(%), epsTh_LL(%), ' + 
@@ -51,8 +56,16 @@ for k,(X,A,R,T,ECC) in enumerate(zip(expts,alpha,Rm, th, ecc)):
 
     D = n.c_[STPF,E]
 
-    # Limit load
+    # Limit load, or Wp = 1000 psi
     loc = L( path + '/zMisc/prof_stages.dat', delimiter=',', dtype=int)[2]
+    print(loc, end=', ')
+    # Truncate at Wp
+    if Wp_trunc:
+        Wp = n.genfromtxt('../../Calibration/GMPT-{}/CalData.dat'.format(X), delimiter=',', usecols=(1))
+        loc = n.nonzero( Wp >= 1 )[0][0]
+        print(loc)
+        cutoff = n.nonzero( Wp>=1.2 )[0][0]
+
     LL[k] = X, A, *D[loc]
   
     # Table
@@ -65,12 +78,12 @@ for k,(X,A,R,T,ECC) in enumerate(zip(expts,alpha,Rm, th, ecc)):
     data.extend(['{:.1f}'.format(j) for j in loc_stn])
     
     table.loc[X] = data
+
+    D = D[:cutoff]
   
     pd.DataFrame( D ).to_excel( fid, sheet_name='Ex{}-{}'.format(X, alpha[k]), 
                                 index=False, header=exporthead)
 
-                
-                                
     if plot == True:
         p.figure(1)
         p.plot(D[:,4],D[:,3])

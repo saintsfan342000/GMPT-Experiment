@@ -23,7 +23,7 @@ try:
     else:
         raise
 except:
-    expts = n.array([2,3,4,7,8,10,11])
+    expts = n.array([2,3,4,7,8,10,11,12,13])
     alpha = ...
 
 FS, SS = 15,5
@@ -87,15 +87,14 @@ for k,X in enumerate(expts):
         p.style.use('mysty')
         l1, = ax1.plot(limload[:,1],limload[:,0],'r^',ms=4)
         l2, = ax1.plot(lastpic[:,1],lastpic[:,0],'rs',ms=4)
-        ax1.axis(xmin=0,ymin=0)
-        ax1.axis('equal')
+        ax1.axis([0,50,0,50])
         ax1.set_xlabel('$\\sigma_{\\theta}$ ($\\mathsf{ksi}$)')
         ax1.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
-        f.myax(ax1, f.ksi2Mpa, '$\\sigma_{\\mathsf{x}}$\n($\\mathsf{MPa}$)')
+        f.myax(ax1, f.ksi2Mpa)
         leg2 = ax1.legend([l1,l2],['LL','Fail'],loc='upper left', handletextpad=.1)
         p.setp(leg2.get_texts(), color='r')
         ax1.add_artist(leg2)
-        leg1 = f.ezlegend(ax1,'lower right', title='$\\alpha\\prime$ || Exp.')
+        leg1 = f.ezlegend(ax1,title='$\\alpha\\prime$ || Exp.')
 
     ##################################################
     # Figure 2 - Axial Sts-stn, Hoop sts-stn
@@ -109,7 +108,7 @@ for k,X in enumerate(expts):
     if X == expts[-1]:
         p.style.use('mysty-12')
         ll21, = ax21.plot(limload[:,2]*100,limload[:,0],'r^')
-        ax21.axis(xmin=-.1)
+        ax21.axis(ymin=0)
         ax21.set_xlabel('$\\epsilon_\\mathsf{x}$ (%)')
         ax21.set_ylabel('$\\sigma_{\\mathsf{x}}$\n($\\mathsf{ksi}$)')
         leg2 = ax21.legend([ll21],['LL'],loc='upper left', handletextpad=0.1)
